@@ -1,10 +1,51 @@
 # LLM 应用工程师学习路线
 
+## 目录
+
+- [基础认知](#基础认知)
+  - [一、13个大模型核心概念](#一13个大模型核心概念)
+  - [二、大模型训练](#二大模型训练)
+- [模型应用](#模型应用)
+  - [一、模型接入真实应用](#一模型接入真实应用)
+  - [二、Prompt Engineering](#二prompt-engineering)
+  - [三、Few-shot、CoT(Chain-of-Thought) 与 Reflection](#三few-shotcotchain-of-thought-与-reflection)
+  - [四、结构化输出](#四结构化输出)
+  - [五、同步、异步、流式输出](#五同步异步流式输出)
+  - [六、Context Engineering](#六context-engineering)
+  - [七、Token、成本与延迟](#七token成本与延迟)
+- [RAG](#rag)
+  - [一、为什么需要RAG？](#一为什么需要rag)
+  - [二、RAG完整链路](#二rag完整链路)
+  - [三、切片策略](#三切片策略)
+  - [四、Embedding](#四embedding)
+  - [五、向量数据库](#五向量数据库)
+  - [六、RAG 系统答不准的排查方法](#六rag-系统答不准的排查方法)
+  - [七、RAG 优化](#七rag-优化)
+  - [八、长文档与代码检索](#八长文档与代码检索)
+  - [九、RAG 评估](#九rag-评估)
+  - [十、Agentic RAG](#十agentic-rag)
+  - [十一、RAG 回答框架](#十一rag-回答框架)
+  - [十二、RAG 高频面试题](#十二rag-高频面试题)
+  - [十三、RAG 落地最难的地方](#十三rag-落地最难的地方)
+  - [十四、GraphRAG 与 LightRAG](#十四graphrag-与-lightrag)
+- [Agent](#agent)
+  - [一、Agent 是什么？](#一agent-是什么)
+  - [二、Function Calling](#二function-calling)
+  - [三、Agent 工具设计](#三agent-工具设计)
+  - [四、ReAct、Reflection、规划执行](#四reactreflection规划执行)
+  - [五、Plan-and-Execute与DAG](#五plan-and-execute与dag)
+  - [六、MCP 协议](#六mcp-协议)
+  - [七、Agent 记忆](#七agent-记忆)
+  - [八、Agent 失败模式](#八agent-失败模式)
+  - [九、Agent 评估](#九agent-评估)
+  - [十、Multi-Agent 角色边界](#十multi-agent-角色边界)
+  - [十一、多 Agent 上下文治理](#十一多-agent-上下文治理)
+
 ## 基础认知
 
 ### 一、13个大模型核心概念
 
-![](image-9.png)
+![](pic/image-9.png)
 
 #### Prompt：提供给大模型的输入
 
@@ -511,7 +552,7 @@ System Prompt 放全局设定，如角色、规则、风格和约束；User Prom
 
 ### 三、Few-shot、CoT(Chain-of-Thought) 与 Reflection
 
-![](image.png)
+![](pic/image.png)
 
 #### Few-shot：给模型看“标准示例”
 
@@ -812,7 +853,7 @@ Context Engineering 的核心，就是在模型推理时**持续选择和维护�
 - **状态摘要：** 跨轮次需要持续保留的目标、约束、进度和决定；
 - **外部记忆：** 完整历史、文档、日志和结构化事实，需要时再检索。
 
-![](image-3.png)
+![](pic/image-3.png)
 
 每轮结束后，系统要判断新信息该放哪里：当前要用的留在上下文，长期有效的写入状态或外部记忆，纯过程信息只保留日志或引用地址。
 
@@ -873,7 +914,7 @@ RAG 是 Context Engineering 的重要组成部分，主要解决“**找什么�
 - **缓存 Token：** 命中 Prompt Cache 的重复输入，具体计费规则取决于模型 API；
 - **推理 Token：** 部分推理模型内部使用，是否可见、计费或占用窗口需要看具体接口说明。
 
-![](image-2.png)
+![](pic/image-2.png)
 
 #### 一次请求到底花多少钱？
 
@@ -1026,7 +1067,7 @@ RAG 更适合以下场景：
 
 #### 链路总览
 
-![](image-4.png)
+![](pic/image-4.png)
 
 #### 离线阶段
 
@@ -1280,7 +1321,7 @@ RAG 中 Query 往往较短，而文档片段较长，因此应关注模型是否
 
 可以简单理解为：**Embedding 负责粗召回，Rerank 负责精排。**
 
-![](image-5.png)
+![](pic/image-5.png)
 
 - **Embedding（Bi-Encoder）：** Query 和文档分别编码成向量，通过余弦相似度等方式快速检索。文档向量可以提前计算并存入向量库，因此速度快，适合从海量文档中召回 Top-K。
 - **Rerank（Cross-Encoder）：** 将 Query 和候选 Chunk 一起输入模型，直接计算相关性分数。语义判断更准确，但无法提前计算，速度更慢，因此只适合对少量候选结果精排。
@@ -1821,7 +1862,7 @@ Overlap 主要缓解相邻 Chunk 的边界断裂；Parent-Child 则显式保存�
 
 **RAGAS（Retrieval-Augmented Generation Assessment）** 是 RAG 场景中常用的自动化评估框架，可以借助 LLM 从多个维度评估生成结果的质量。
 
-![](image-6.png)
+![](pic/image-6.png)
 
 **1. Faithfulness（忠实度）**
 
@@ -2066,7 +2107,7 @@ RAGAS 等自动评估通常需要额外调用 LLM：
 
 #### 评估驱动的优化闭环
 
-![](image-7.png)
+![](pic/image-7.png)
 
 **第一步：建立 Baseline**
 
@@ -2286,7 +2327,7 @@ Agentic RAG 主要解决：**该不该检索、检索什么、检索几次，以
 
 ### 一、Agent 是什么？
 
-![](image-8.png)
+![](pic/image-8.png)
 
 #### 四个能力
 
@@ -2426,7 +2467,7 @@ Workflow 适合**流程固定、规则明确**的任务；Agent 适合**路径�
 
 #### 模型“调用工具”本质上发生了什么？
 
-![](image-1.png)
+![](pic/image-1.png)
 
 1. **开发者定义工具**  
    向模型提供可用工具及其名称、功能和参数，相当于告诉模型“你能用哪些能力”。
