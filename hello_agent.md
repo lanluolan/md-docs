@@ -431,7 +431,7 @@ RNN 和 LSTM 通过循环结构处理序列，但必须按时间步顺序计算�
 
 最初的 Transformer 面向机器翻译任务，采用**编码器-解码器（Encoder-Decoder）**架构。
 
-![](image-3.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-3.png)
 
 - **编码器（Encoder）**：读取所有输入词元，为每个词元生成包含上下文信息的向量表示。
 - **解码器（Decoder）**：结合已生成的前文和编码器的输出，逐步预测并生成下一个词元。
@@ -529,7 +529,7 @@ $$
 2. **并行计算**：每个头独立执行注意力计算，捕捉不同的特征关系。
 3. **拼接与映射**：拼接所有头的输出，再通过线性变换得到最终结果。
 
-![](image-4.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-4.png)
 
 ```python
 class MultiHeadAttention(nn.Module):
@@ -3787,7 +3787,7 @@ if __name__ == "__main__":
     test_calculator_tool()
 ```
 
-![](image-5.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-5.png)
 
 ## 第八章 记忆与检索
 
@@ -3820,7 +3820,7 @@ LLM 的内置知识主要来自训练数据，具有**静态性和有限性**，
 - **`memory_tool`**：存储、管理和维护对话交互信息。
 - **`rag_tool`**：从外部知识库检索相关内容，为 LLM 提供上下文，并可将重要检索结果存入记忆系统。
 
-![](image-6.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-6.png)
 
 **（1）记忆系统架构**
 
@@ -3882,9 +3882,9 @@ RAG系统
 
 #### 8.2.1 记忆系统的工作流程
 
-![](image-7.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-7.png)
 
-![](image-8.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-8.png)
 
 记忆系统主要由四种记忆类型组成：
 
@@ -3912,5 +3912,1882 @@ RAG系统
 - **特点**：支持跨模态检索。
 - **生命周期**：根据信息重要性和存储空间动态管理。
 
-#### 8.2.3 MemoryTool详解
+#### 8.2.3 MemoryTool 详解
+
+`MemoryTool` 是记忆系统的统一接口，采用**“统一入口，分发处理”**的设计模式。
+
+通过 `execute()` 根据 `action` 分发操作，支持：
+
+- **`add`**：添加记忆，支持工作、情景、语义、感知四种类型。
+- **`search`**：搜索记忆。
+- **`summary`**：获取记忆摘要。
+- **`stats`**：获取统计信息。
+- **`update`**：更新记忆。
+- **`remove`**：删除记忆。
+- **`forget`**：按不同策略遗忘记忆。
+- **`consolidate`**：整合记忆（短期 → 长期）。
+- **`clear_all`**：清空所有记忆。
+
+```python
+def execute(self, action: str, **kwargs) -> str:
+    """执行记忆操作
+
+    支持的操作：
+    - add: 添加记忆（支持4种类型: working/episodic/semantic/perceptual）
+    - search: 搜索记忆
+    - summary: 获取记忆摘要
+    - stats: 获取统计信息
+    - update: 更新记忆
+    - remove: 删除记忆
+    - forget: 遗忘记忆（多种策略）
+    - consolidate: 整合记忆（短期→长期）
+    - clear_all: 清空所有记忆
+    """
+
+    if action == "add":
+        return self._add_memory(**kwargs)
+    elif action == "search":
+        return self._search_memory(**kwargs)
+    elif action == "summary":
+        return self._get_summary(**kwargs)
+    # ... 其他操作
+```
+
+**（1）操作一：add**
+
+`_add_memory()` 负责添加记忆并自动补充上下文信息，主要实现以下功能：
+
+- **会话管理**：自动生成 `session_id`，区分不同会话。
+- **多模态处理**：自动识别文件模态，保存相关元数据。
+- **上下文记录**：自动添加会话 ID 和时间戳，便于检索与管理。
+- **重要性评估**：`importance` 默认值为 `0.5`，取值范围为 `0.0～1.0`，用于标记记忆的重要程度。
+- **记忆存储与异常处理**：调用 `memory_manager.add_memory()` 保存记忆，并返回执行结果或错误信息。
+
+```python
+def _add_memory(
+    self,
+    content: str = "",
+    memory_type: str = "working",
+    importance: float = 0.5,
+    file_path: str = None,
+    modality: str = None,
+    **metadata
+) -> str:
+    """添加记忆"""
+    try:
+        # 确保会话ID存在
+        if self.current_session_id is None:
+            self.current_session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # 感知记忆文件支持
+        if memory_type == "perceptual" and file_path:
+            inferred = modality or self._infer_modality(file_path)
+            metadata.setdefault("modality", inferred)
+            metadata.setdefault("raw_data", file_path)
+
+        # 添加会话信息到元数据
+        metadata.update({
+            "session_id": self.current_session_id,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        memory_id = self.memory_manager.add_memory(
+            content=content,
+            memory_type=memory_type,
+            importance=importance,
+            metadata=metadata,
+            auto_classify=False
+        )
+
+        return f"✅ 记忆已添加 (ID: {memory_id[:8]}...)"
+
+    except Exception as e:
+        return f"❌ 添加记忆失败: {str(e)}"
+```
+
+**四种记忆类型的使用示例**
+
+通过 `memory_tool.run("add")` 添加不同类型的记忆：
+
+- **工作记忆（working）**：存储临时对话信息，容量有限。
+- **情景记忆（episodic）**：记录具体事件与经历，可添加事件类型、地点等信息。
+- **语义记忆（semantic）**：存储抽象知识与概念。
+- **感知记忆（perceptual）**：保存图像等多模态信息及文件路径。
+
+```python
+# 1. 工作记忆 - 临时信息，容量有限
+memory_tool.run("add",
+    content="用户刚才问了关于Python函数的问题",
+    memory_type="working",
+    importance=0.6
+)
+
+# 2. 情景记忆 - 具体事件和经历
+memory_tool.run("add",
+    content="2024年3月15日，用户张三完成了第一个Python项目",
+    memory_type="episodic",
+    importance=0.8,
+    event_type="milestone",
+    location="在线学习平台"
+)
+
+# 3. 语义记忆 - 抽象知识和概念
+memory_tool.run("add",
+    content="Python是一种解释型、面向对象的编程语言",
+    memory_type="semantic",
+    importance=0.9,
+    knowledge_type="factual"
+)
+
+# 4. 感知记忆 - 多模态信息
+memory_tool.run("add",
+    content="用户上传了一张Python代码截图，包含函数定义",
+    memory_type="perceptual",
+    importance=0.7,
+    modality="image",
+    file_path="./uploads/code_screenshot.png"
+)
+```
+
+**（2）操作二：search**
+
+`_search_memory()` 用于检索相关记忆，支持关键词搜索、记忆类型筛选和重要性过滤。
+
+核心功能：
+
+- **`query`**：搜索关键词。
+- **`limit`**：返回结果数量，默认 `5`。
+- **`memory_type` / `memory_types`**：支持指定单个或多个记忆类型。
+- **`min_importance`**：最低重要性阈值，默认 `0.1`，用于过滤低重要性记忆。
+- **结果处理**：显示记忆类型、内容摘要及重要性，并处理无结果和异常情况。
+
+```python
+def _search_memory(
+    self,
+    query: str,
+    limit: int = 5,
+    memory_types: List[str] = None,
+    memory_type: str = None,
+    min_importance: float = 0.1
+) -> str:
+    """搜索记忆"""
+    try:
+        # 参数标准化处理
+        if memory_type and not memory_types:
+            memory_types = [memory_type]
+
+        results = self.memory_manager.retrieve_memories(
+            query=query,
+            limit=limit,
+            memory_types=memory_types,
+            min_importance=min_importance
+        )
+
+        if not results:
+            return f"🔍 未找到与 '{query}' 相关的记忆"
+
+        # 格式化结果
+        formatted_results = []
+        formatted_results.append(f"🔍 找到 {len(results)} 条相关记忆:")
+
+        for i, memory in enumerate(results, 1):
+            memory_type_label = {
+                "working": "工作记忆",
+                "episodic": "情景记忆", 
+                "semantic": "语义记忆",
+                "perceptual": "感知记忆"
+            }.get(memory.memory_type, memory.memory_type)
+
+            content_preview = memory.content[:80] + "..." if len(memory.content) > 80 else memory.content
+            formatted_results.append(
+                f"{i}. [{memory_type_label}] {content_preview} (重要性: {memory.importance:.2f})"
+            )
+
+        return "\n".join(formatted_results)
+
+    except Exception as e:
+        return f"❌ 搜索记忆失败: {str(e)}"
+```
+
+**使用示例**
+
+支持基础搜索、指定记忆类型搜索，以及结合重要性阈值的多类型搜索。
+
+```python
+# 基础搜索
+result = memory_tool.execute("search", query="Python编程", limit=5)
+
+# 指定记忆类型搜索
+result = memory_tool.execute("search",
+    query="学习进度",
+    memory_type="episodic",
+    limit=3
+)
+
+# 多类型搜索
+result = memory_tool.execute("search",
+    query="函数定义",
+    memory_types=["semantic", "episodic"],
+    min_importance=0.5
+)
+```
+
+**（3）操作三：forget**
+
+`_forget()` 用于清理记忆，支持三种遗忘策略：
+
+- **基于重要性（`importance_based`）**：删除重要性低于指定阈值的记忆。
+- **基于时间（`time_based`）**：删除超过指定保存天数的记忆。
+- **基于容量（`capacity_based`）**：存储超限时，优先删除重要性较低的记忆。
+
+核心参数：
+
+- **`strategy`**：遗忘策略，默认为 `importance_based`。
+- **`threshold`**：重要性阈值，默认 `0.1`。
+- **`max_age_days`**：记忆保存天数，默认 `30`。
+
+```python
+def _forget(self, strategy: str = "importance_based", threshold: float = 0.1, max_age_days: int = 30) -> str:
+    """遗忘记忆（支持多种策略）"""
+    try:
+        count = self.memory_manager.forget_memories(
+            strategy=strategy,
+            threshold=threshold,
+            max_age_days=max_age_days
+        )
+        return f"🧹 已遗忘 {count} 条记忆（策略: {strategy}）"
+    except Exception as e:
+        return f"❌ 遗忘记忆失败: {str(e)}"
+```
+
+**使用示例**
+
+```python
+# 1. 基于重要性的遗忘 - 删除重要性低于阈值的记忆
+memory_tool.execute("forget",
+    strategy="importance_based",
+    threshold=0.2
+)
+
+# 2. 基于时间的遗忘 - 删除超过指定天数的记忆
+memory_tool.execute("forget",
+    strategy="time_based",
+    max_age_days=30
+)
+
+# 3. 基于容量的遗忘 - 当记忆数量超限时删除最不重要的
+memory_tool.execute("forget",
+    strategy="capacity_based",
+    threshold=0.3
+)
+```
+
+**（4）操作四：consolidate**
+
+`_consolidate()` 用于**记忆整合**，借鉴神经科学中的记忆固化机制，将重要的短期记忆自动转化为长期记忆。
+
+核心参数：
+
+- **`from_type`**：来源记忆类型，默认为 `working`。
+- **`to_type`**：目标记忆类型，默认为 `episodic`。
+- **`importance_threshold`**：重要性阈值，默认 `0.7`。
+
+系统自动筛选符合重要性条件的记忆并完成类型转换，无需手动选择。
+
+```python
+def _consolidate(self, from_type: str = "working", to_type: str = "episodic", importance_threshold: float = 0.7) -> str:
+    """整合记忆（将重要的短期记忆提升为长期记忆）"""
+    try:
+        count = self.memory_manager.consolidate_memories(
+            from_type=from_type,
+            to_type=to_type,
+            importance_threshold=importance_threshold,
+        )
+        return f"🔄 已整合 {count} 条记忆为长期记忆（{from_type} → {to_type}，阈值={importance_threshold}）"
+    except Exception as e:
+        return f"❌ 整合记忆失败: {str(e)}"
+```
+
+**使用示例**
+
+支持工作记忆向情景记忆、情景记忆向语义记忆的整合。
+
+```python
+# 将重要的工作记忆转为情景记忆
+memory_tool.execute("consolidate",
+    from_type="working",
+    to_type="episodic",
+    importance_threshold=0.7
+)
+
+# 将重要的情景记忆转为语义记忆
+memory_tool.execute("consolidate",
+    from_type="episodic",
+    to_type="semantic",
+    importance_threshold=0.8
+)
+```
+
+#### 8.2.5 四种记忆类型
+
+**（1）工作记忆（WorkingMemory）**
+
+`WorkingMemory` 负责存储当前会话的临时信息，采用**纯内存存储 + TTL（Time To Live）自动清理机制**。
+
+核心特点：
+
+- **容量管理**：默认最多 `50` 条，超限时移除最低优先级记忆。
+- **自动过期**：默认 TTL 为 `60` 分钟，自动清理过期记忆。
+- **快速访问**：使用纯内存存储。
+- **组合词法检索**：结合 TF-IDF 相似度与关键词匹配，并考虑时间衰减和记忆重要性。
+
+```python
+class WorkingMemory:
+
+    def __init__(self, config: MemoryConfig):
+        self.max_capacity = config.working_memory_capacity or 50
+        self.max_age_minutes = config.working_memory_ttl or 60
+        self.memories = []
+
+    def add(self, memory_item: MemoryItem) -> str:
+        """添加工作记忆"""
+        self._expire_old_memories()  # 过期清理
+
+        if len(self.memories) >= self.max_capacity:
+            self._remove_lowest_priority_memory()  # 容量管理
+
+        self.memories.append(memory_item)
+        return memory_item.id
+
+    def retrieve(self, query: str, limit: int = 5, **kwargs) -> List[MemoryItem]:
+        """组合词法检索：TF-IDF 词项权重相似度 + 关键词匹配"""
+        self._expire_old_memories()
+
+        # 计算 TF-IDF 词项权重相似度
+        vector_scores = self._try_tfidf_search(query)
+
+        # 计算综合分数
+        scored_memories = []
+        for memory in self.memories:
+            vector_score = vector_scores.get(memory.id, 0.0)
+            keyword_score = self._calculate_keyword_score(query, memory.content)
+
+            # 混合评分
+            base_relevance = vector_score * 0.7 + keyword_score * 0.3 if vector_score > 0 else keyword_score
+            time_decay = self._calculate_time_decay(memory.timestamp)
+            importance_weight = 0.8 + (memory.importance * 0.4)
+
+            final_score = base_relevance * time_decay * importance_weight
+            if final_score > 0:
+                scored_memories.append((final_score, memory))
+
+        scored_memories.sort(key=lambda x: x[0], reverse=True)
+        return [memory for _, memory in scored_memories[:limit]]
+```
+
+**检索与评分机制**
+
+1. **相关性计算**：TF-IDF 相似度占 `70%`，关键词匹配占 `30%`；TF-IDF 无有效得分时，仅使用关键词匹配。
+2. **时间衰减**：根据记忆时间调整相关性得分。
+3. **重要性加权**：通过 `importance` 调整记忆的排序权重。
+
+最终评分公式：
+
+\[
+\text{Score} = \text{Relevance} \times \text{TimeDecay} \times (0.8 + 0.4 \times \text{Importance})
+\]
+
+其中，**TF-IDF 基于词频与逆文档频率构建稀疏词项向量，属于词法检索，并非稠密向量语义检索**。
+
+**（2）情景记忆（EpisodicMemory）**
+
+`EpisodicMemory` 负责长期存储具体事件和经历，保留事件上下文及时间序列关系。
+
+采用 **SQLite + Qdrant 混合存储架构**：
+
+- **SQLite**：存储结构化数据，支持复杂查询与条件过滤。
+- **Qdrant**：提供高效的语义向量检索。
+- **会话索引（`sessions`）**：记录事件与会话的关联关系。
+
+核心方法：
+
+- **`add()`**：创建 `Episode` 对象，更新会话索引并持久化存储。
+- **`retrieve()`**：结合结构化过滤与向量检索，对结果进行综合评分和排序。
+- **`_calculate_episode_score()`**：根据向量相似度、时间近因性和重要性计算得分。
+
+```python
+class EpisodicMemory:
+    """情景记忆实现
+    特点：
+    - SQLite+Qdrant混合存储架构
+    - 支持时间序列和会话级检索
+    - 结构化过滤 + 语义向量检索
+    """
+    
+    def __init__(self, config: MemoryConfig):
+        self.doc_store = SQLiteDocumentStore(config.database_path)
+        self.vector_store = QdrantVectorStore(config.qdrant_url, config.qdrant_api_key)
+        self.embedder = create_embedding_model_with_fallback()
+        self.sessions = {}  # 会话索引
+    
+    def add(self, memory_item: MemoryItem) -> str:
+        """添加情景记忆"""
+        # 创建情景对象
+        episode = Episode(
+            episode_id=memory_item.id,
+            session_id=memory_item.metadata.get("session_id", "default"),
+            timestamp=memory_item.timestamp,
+            content=memory_item.content,
+            context=memory_item.metadata
+        )
+        
+        # 更新会话索引
+        session_id = episode.session_id
+        if session_id not in self.sessions:
+            self.sessions[session_id] = []
+        self.sessions[session_id].append(episode.episode_id)
+        
+        # 持久化存储（SQLite + Qdrant）
+        self._persist_episode(episode)
+        return memory_item.id
+    
+    def retrieve(self, query: str, limit: int = 5, **kwargs) -> List[MemoryItem]:
+        """混合检索：结构化过滤 + 语义向量检索"""
+        # 1. 结构化预过滤（时间范围、重要性等）
+        candidate_ids = self._structured_filter(**kwargs)
+        
+        # 2. 向量语义检索
+        hits = self._vector_search(query, limit * 5, kwargs.get("user_id"))
+        
+        # 3. 综合评分与排序
+        results = []
+        for hit in hits:
+            if self._should_include(hit, candidate_ids, kwargs):
+                score = self._calculate_episode_score(hit)
+                memory_item = self._create_memory_item(hit)
+                results.append((score, memory_item))
+        
+        results.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in results[:limit]]
+    
+    def _calculate_episode_score(self, hit) -> float:
+        """情景记忆评分算法"""
+        vec_score = float(hit.get("score", 0.0))
+        recency_score = self._calculate_recency(hit["metadata"]["timestamp"])
+        importance = hit["metadata"].get("importance", 0.5)
+        
+        # 评分公式：(向量相似度 × 0.8 + 时间近因性 × 0.2) × 重要性权重
+        base_relevance = vec_score * 0.8 + recency_score * 0.2
+        importance_weight = 0.8 + (importance * 0.4)
+        
+        return base_relevance * importance_weight
+```
+
+**检索与评分机制**
+
+1. **结构化过滤**：根据时间范围、重要性等条件筛选候选记忆。
+2. **语义向量检索**：通过 Qdrant 获取相关记忆。
+3. **综合评分**：向量相似度占 `80%`，时间近因性占 `20%`，再结合重要性权重排序。
+
+最终评分公式：
+
+\[
+\text{Score}=(0.8\times\text{VectorSimilarity}+0.2\times\text{Recency})\times(0.8+0.4\times\text{Importance})
+\]
+
+该机制综合考虑**语义相关性、时间近因性和记忆重要性**，提高情景记忆的检索质量。
+
+**（3）语义记忆（SemanticMemory）**
+
+`SemanticMemory` 负责存储抽象知识、概念和规则，重点在于**知识结构化与关系推理**。
+
+采用 **Neo4j + Qdrant 混合存储架构**：
+
+- **Neo4j**：存储实体及关系，支持知识图谱推理。
+- **Qdrant**：存储文本嵌入，支持语义向量检索。
+- **嵌入模型**：使用 HuggingFace 中文预训练模型生成文本向量。
+- **NLP 处理器**：支持中英文实体与关系提取。
+
+核心方法：
+
+- **`add()`**：生成文本嵌入，提取实体和关系，分别存入 Neo4j 与 Qdrant。
+- **`retrieve()`**：结合向量检索和图检索获取相关记忆。
+- **`_combine_and_rank_results()`**：合并检索结果，根据相似度和重要性进行排序。
+
+```python
+class SemanticMemory(BaseMemory):
+    """语义记忆实现
+    
+    特点：
+    - 使用HuggingFace中文预训练模型进行文本嵌入
+    - 向量检索进行快速相似度匹配
+    - 知识图谱存储实体和关系
+    - 混合检索策略：向量+图+语义推理
+    """
+    
+    def __init__(self, config: MemoryConfig, storage_backend=None):
+        super().__init__(config, storage_backend)
+        
+        # 嵌入模型（统一提供）
+        self.embedding_model = get_text_embedder()
+        
+        # 专业数据库存储
+        self.vector_store = QdrantConnectionManager.get_instance(**qdrant_config)
+        self.graph_store = Neo4jGraphStore(**neo4j_config)
+        
+        # 实体和关系缓存
+        self.entities: Dict[str, Entity] = {}
+        self.relations: List[Relation] = []
+        
+        # NLP处理器（支持中英文）
+        self.nlp = self._init_nlp()
+
+    def add(self, memory_item: MemoryItem) -> str:
+        """添加语义记忆"""
+        # 1. 生成文本嵌入
+        embedding = self.embedding_model.encode(memory_item.content)
+        
+        # 2. 提取实体和关系
+        entities = self._extract_entities(memory_item.content)
+        relations = self._extract_relations(memory_item.content, entities)
+        
+        # 3. 存储到Neo4j图数据库
+        for entity in entities:
+            self._add_entity_to_graph(entity, memory_item)
+        
+        for relation in relations:
+            self._add_relation_to_graph(relation, memory_item)
+        
+        # 4. 存储到Qdrant向量数据库
+        metadata = {
+            "memory_id": memory_item.id,
+            "entities": [e.entity_id for e in entities],
+            "entity_count": len(entities),
+            "relation_count": len(relations)
+        }
+        
+        self.vector_store.add_vectors(
+            vectors=[embedding.tolist()],
+            metadata=[metadata],
+            ids=[memory_item.id]
+        )
+
+    def retrieve(self, query: str, limit: int = 5, **kwargs) -> List[MemoryItem]:
+        """检索语义记忆"""
+        # 1. 向量检索
+        vector_results = self._vector_search(query, limit * 2, user_id)
+        
+        # 2. 图检索
+        graph_results = self._graph_search(query, limit * 2, user_id)
+        
+        # 3. 混合排序
+        combined_results = self._combine_and_rank_results(
+            vector_results, graph_results, query, limit
+        )
+        
+        return combined_results[:limit]
+
+    def _combine_and_rank_results(self, vector_results, graph_results, query, limit):
+        """混合排序结果"""
+        combined = {}
+        
+        # 合并向量和图检索结果
+        for result in vector_results:
+            combined[result["memory_id"]] = {
+                **result,
+                "vector_score": result.get("score", 0.0),
+                "graph_score": 0.0
+            }
+        
+        for result in graph_results:
+            memory_id = result["memory_id"]
+            if memory_id in combined:
+                combined[memory_id]["graph_score"] = result.get("similarity", 0.0)
+            else:
+                combined[memory_id] = {
+                    **result,
+                    "vector_score": 0.0,
+                    "graph_score": result.get("similarity", 0.0)
+                }
+        
+        # 计算混合分数
+        for memory_id, result in combined.items():
+            vector_score = result["vector_score"]
+            graph_score = result["graph_score"]
+            importance = result.get("importance", 0.5)
+            
+            # 基础相似度得分
+            base_relevance = vector_score * 0.7 + graph_score * 0.3
+            
+            # 重要性权重 [0.8, 1.2]
+            importance_weight = 0.8 + (importance * 0.4)
+            
+            # 最终得分：相似度 * 重要性权重
+            combined_score = base_relevance * importance_weight
+            result["combined_score"] = combined_score
+        
+        # 排序并返回
+        sorted_results = sorted(
+            combined.values(),
+            key=lambda x: x["combined_score"],
+            reverse=True
+        )
+        
+        return sorted_results[:limit]
+```
+
+**检索与评分机制**
+
+1. **向量检索（70%）**：以语义相似度为主要依据，确保结果与查询相关。
+2. **图检索（30%）**：补充实体关系信息，支持概念关联推理。
+3. **重要性加权**：权重范围为 `[0.8, 1.2]`，避免重要性过度影响相似度排序。
+
+最终评分公式：
+
+\[
+\text{Score}=(0.7\times\text{VectorSimilarity}+0.3\times\text{GraphSimilarity})\times(0.8+0.4\times\text{Importance})
+\]
+
+**（4）感知记忆（PerceptualMemory）**
+
+`PerceptualMemory` 负责存储和检索文本、图像、音频等多模态信息。
+
+采用**模态分离的向量存储策略**，为不同模态创建独立的 Qdrant 集合，避免向量维度不匹配，提高检索准确性。
+
+核心特点：
+
+- **多模态编码**：分别使用文本嵌入模型、CLIP（图像）和 CLAP（音频）。
+- **独立向量存储**：文本、图像、音频分别存储在不同集合。
+- **模态检索**：支持指定目标模态，结合用户 ID 过滤检索结果。
+- **综合排序**：融合向量相似度、时间近因性和记忆重要性。
+
+核心方法：
+
+- **`__init__()`**：初始化多模态编码器及对应的向量存储。
+- **`retrieve()`**：执行同模态向量检索，并对结果综合评分。
+- **`_calculate_recency_score()`**：通过指数衰减计算时间近因性得分。
+
+```python
+class PerceptualMemory(BaseMemory):
+    """感知记忆实现
+    
+    特点：
+    - 支持多模态数据（文本、图像、音频等）
+    - 跨模态相似性搜索
+    - 感知数据的语义理解
+    - 支持内容生成和检索
+    """
+    
+    def __init__(self, config: MemoryConfig, storage_backend=None):
+        super().__init__(config, storage_backend)
+        
+        # 多模态编码器
+        self.text_embedder = get_text_embedder()
+        self._clip_model = self._init_clip_model()  # 图像编码
+        self._clap_model = self._init_clap_model()  # 音频编码
+        
+        # 按模态分离的向量存储
+        self.vector_stores = {
+            "text": QdrantConnectionManager.get_instance(
+                collection_name="perceptual_text",
+                vector_size=self.vector_dim
+            ),
+            "image": QdrantConnectionManager.get_instance(
+                collection_name="perceptual_image", 
+                vector_size=self._image_dim
+            ),
+            "audio": QdrantConnectionManager.get_instance(
+                collection_name="perceptual_audio",
+                vector_size=self._audio_dim
+            )
+        }
+    
+    def retrieve(self, query: str, limit: int = 5, **kwargs) -> List[MemoryItem]:
+        """检索感知记忆（可筛模态；同模态向量检索+时间/重要性融合）"""
+        user_id = kwargs.get("user_id")
+        target_modality = kwargs.get("target_modality")
+        query_modality = kwargs.get("query_modality", target_modality or "text")
+        
+        # 同模态向量检索
+        try:
+            query_vector = self._encode_data(query, query_modality)
+            store = self._get_vector_store_for_modality(target_modality or query_modality)
+            
+            where = {"memory_type": "perceptual"}
+            if user_id:
+                where["user_id"] = user_id
+            if target_modality:
+                where["modality"] = target_modality
+            
+            hits = store.search_similar(
+                query_vector=query_vector,
+                limit=max(limit * 5, 20),
+                where=where
+            )
+        except Exception:
+            hits = []
+        
+        # 融合排序（向量相似度 + 时间近因性 + 重要性权重）
+        results = []
+        for hit in hits:
+            vector_score = float(hit.get("score", 0.0))
+            recency_score = self._calculate_recency_score(hit["metadata"]["timestamp"])
+            importance = hit["metadata"].get("importance", 0.5)
+            
+            # 评分算法
+            base_relevance = vector_score * 0.8 + recency_score * 0.2
+            importance_weight = 0.8 + (importance * 0.4)
+            combined_score = base_relevance * importance_weight
+            
+            results.append((combined_score, self._create_memory_item(hit)))
+        
+        results.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in results[:limit]]
+
+    def _calculate_recency_score(self, timestamp: str) -> float:
+        """计算时间近因性得分"""
+        try:
+            memory_time = datetime.fromisoformat(timestamp)
+            current_time = datetime.now()
+            age_hours = (current_time - memory_time).total_seconds() / 3600
+            
+            # 指数衰减：24小时内保持高分，之后逐渐衰减
+            decay_factor = 0.1  # 衰减系数
+            recency_score = math.exp(-decay_factor * age_hours / 24)
+            
+            return max(0.1, recency_score)  # 最低保持0.1的基础分数
+        except Exception:
+            return 0.5  # 默认中等分数
+```
+
+**检索与评分机制**
+
+1. **向量相似度（80%）**：衡量检索结果的相关性。
+2. **时间近因性（20%）**：优先考虑较新的记忆。
+3. **重要性加权**：根据 `importance` 调整排序权重。
+
+最终评分公式：
+
+\[
+\text{Score}=(0.8\times\text{VectorSimilarity}+0.2\times\text{Recency})\times(0.8+0.4\times\text{Importance})
+\]
+
+**时间近因性采用指数衰减模型**：
+
+\[
+\text{Recency}=\max(0.1,e^{-0.1\times\frac{\text{AgeHours}}{24}})
+\]
+
+其中，`AgeHours` 表示记忆距今的小时数，最低得分为 `0.1`；计算异常时返回 `0.5`。
+
+感知记忆的整体设计面向跨模态语义检索，当前代码展示的是**同模态向量检索与融合排序**。
+
+### 8.3 RAG 系统：知识检索增强
+
+#### 8.3.1 RAG 的基础知识
+
+**（1）什么是 RAG？**
+
+**检索增强生成（Retrieval-Augmented Generation，RAG）** 是结合信息检索与文本生成的技术。
+
+核心思想：**先从外部知识库检索相关信息，再将其作为上下文提供给 LLM，以生成更准确、可靠的回答。**
+
+RAG 包含三个核心环节：
+
+- **检索（Retrieval）**：从外部知识库获取相关内容。
+- **增强（Augmented）**：将检索结果融入 Prompt，为模型提供上下文。
+- **生成（Generation）**：基于检索信息生成准确、透明的答案。
+
+**（2）基本工作流程**
+
+RAG 主要分为两个阶段：
+
+1. **数据准备阶段**：数据提取 → 文本分块 → 向量化 → 构建可检索知识库。
+2. **应用阶段**：接收用户问题 → 检索相关信息 → 注入 Prompt → LLM 生成答案。
+
+**（3）发展历程**
+
+**朴素 RAG（Naive RAG，2020—2021）**
+
+采用简单的 **Retrieve-Read（检索-读取）** 模式。
+
+- **检索方式**：使用 TF-IDF、BM25 等关键词匹配算法，擅长字面匹配，但语义理解能力有限。
+- **生成方式**：将检索文档直接拼接到 Prompt 中，由模型生成答案。
+
+**高级 RAG（Advanced RAG，2022—2023）**
+
+随着文本嵌入和向量数据库的发展，RAG 开始优化检索与生成流程。
+
+- **检索方式**：采用稠密嵌入（Dense Embedding）进行语义向量检索，支持语义相似性匹配。
+- **优化技术**：引入查询重写、文档分块、重排序（Reranking）等方法。
+
+**模块化 RAG（Modular RAG，2023—至今）**
+
+RAG 进一步向**模块化、自动化和智能化**发展，各组件可独立组合与扩展。
+
+- **检索方式**：混合检索、多查询扩展、假设性文档嵌入（HyDE）等。
+- **生成方式**：结合思维链推理（CoT）、自我反思与修正，提高回答质量。
+
+#### 8.3.2 RAG 系统工作原理
+
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image.png)
+
+RAG 系统包含两个主要工作流程：
+
+1. **数据处理流程**：使用 **MarkItDown** 将外部知识源统一转换为 Markdown 格式，再进行处理与存储。
+2. **查询与生成流程**：根据用户问题检索相关知识，并结合检索结果生成回答。
+
+#### 8.3.3 快速体验：30 秒上手 RAG 功能
+
+通过 `RAGTool` 快速构建知识库，体验 RAG 的基本功能：
+
+1. **初始化**：创建 LLM、RAG 工具及支持 RAG 的 `SimpleAgent`。
+2. **添加知识**：使用 `add_text` 将文本写入知识库。
+3. **知识检索**：通过 `search` 查询相关内容。
+4. **知识库统计**：通过 `stats` 获取知识库信息。
+
+```python
+from hello_agents import SimpleAgent, HelloAgentsLLM, ToolRegistry
+from hello_agents.tools import RAGTool
+
+# 创建LLM实例
+llm = HelloAgentsLLM()
+
+# 创建RAG工具
+rag_tool = RAGTool(
+    knowledge_base_path="./knowledge_base",
+    collection_name="test_collection",
+    rag_namespace="test"
+)
+
+tool_registry = ToolRegistry()
+tool_registry.register_tool(rag_tool)
+
+# 创建具有RAG能力的Agent
+agent = SimpleAgent(name="知识助手", llm=llm, tool_registry=tool_registry)
+
+# 体验RAG功能
+# 添加第一个知识
+result1 = rag_tool.execute("add_text", 
+    text="Python是一种高级编程语言，由Guido van Rossum于1991年首次发布。Python的设计哲学强调代码的可读性和简洁的语法。",
+    document_id="python_intro")
+print(f"知识1: {result1}")
+
+# 添加第二个知识  
+result2 = rag_tool.execute("add_text",
+    text="机器学习是人工智能的一个分支，通过算法让计算机从数据中学习模式。主要包括监督学习、无监督学习和强化学习三种类型。",
+    document_id="ml_basics")
+print(f"知识2: {result2}")
+
+# 添加第三个知识
+result3 = rag_tool.execute("add_text",
+    text="RAG（检索增强生成）是一种结合信息检索和文本生成的AI技术。它通过检索相关知识来增强大语言模型的生成能力。",
+    document_id="rag_concept")
+print(f"知识3: {result3}")
+
+
+print("\n=== 搜索知识 ===")
+result = rag_tool.execute("search",
+    query="Python编程语言的历史",
+    limit=3,
+    min_score=0.1
+)
+print(result)
+
+print("\n=== 知识库统计 ===")
+result = rag_tool.execute("stats")
+print(result)
+```
+
+#### 8.3.4 RAG 系统架构设计
+
+RAG 系统采用**“五层七步”**架构，将知识处理、检索和生成流程模块化。
+
+**五层架构**
+
+- **用户层**：通过 `RAGTool` 提供统一接口。
+- **应用层**：支持智能问答、知识搜索与管理。
+- **处理层**：负责文档解析、文本分块和向量化。
+- **存储层**：使用向量数据库及文档存储。
+- **基础层**：提供嵌入模型、LLM 和数据库等基础能力。
+
+```text
+用户层：RAGTool统一接口
+  ↓
+应用层：智能问答、搜索、管理
+  ↓  
+处理层：文档解析、分块、向量化
+  ↓
+存储层：向量数据库、文档存储
+  ↓
+基础层：嵌入模型、LLM、数据库
+```
+
+**RAGTool 核心实现**
+
+`RAGTool` 继承 `Tool`，封装文档导入、智能检索、增强问答及知识库管理。
+
+核心设计：
+
+- **`knowledge_base_path`**：知识库存储路径。
+- **`collection_name`**：向量集合名称。
+- **`rag_namespace`**：知识库命名空间。
+- **`_pipelines`**：管理不同命名空间的 RAG 管道。
+- **`create_rag_pipeline()`**：创建默认 RAG 管道。
+
+```python
+class RAGTool(Tool):
+    """RAG工具
+
+    提供完整的 RAG 能力：
+    - 添加多格式文档（PDF、Office、图片、音频等）
+    - 智能检索与召回
+    - LLM 增强问答
+    - 知识库管理
+    """
+
+    def __init__(
+        self,
+        knowledge_base_path: str = "./knowledge_base",
+        qdrant_url: str = None,
+        qdrant_api_key: str = None,
+        collection_name: str = "rag_knowledge_base",
+        rag_namespace: str = "default"
+    ):
+        # 初始化RAG管道
+        self._pipelines: Dict[str, Dict[str, Any]] = {}
+        self.llm = HelloAgentsLLM()
+
+        # 创建默认管道
+        default_pipeline = create_rag_pipeline(
+            qdrant_url=self.qdrant_url,
+            qdrant_api_key=self.qdrant_api_key,
+            collection_name=self.collection_name,
+            rag_namespace=self.rag_namespace
+        )
+        self._pipelines[self.rag_namespace] = default_pipeline
+```
+
+**文档处理流程**
+
+通过 **MarkItDown** 将不同格式的知识文档统一转换为 Markdown，再进行分块、向量化和存储检索。
+
+```text
+任意格式文档 → MarkItDown转换 → Markdown文本 → 智能分块 → 向量化 → 存储检索
+```
+
+**（1）多模态文档载入**
+
+**MarkItDown** 是微软开源的通用文档转换工具，可将 PDF、Word、Excel、图片、音频等多种格式统一转换为 **Markdown 文本**，再进行分块、向量化和存储。
+
+`_convert_to_markdown()` 的核心功能：
+
+- **多格式支持**：处理文档、图像、音频、文本及代码文件。
+- **PDF 增强处理**：通过 `_enhanced_pdf_processing()` 单独处理 PDF。
+- **统一格式转换**：使用 MarkItDown 将其他文件转换为 Markdown。
+- **容错机制**：转换工具不可用或转换失败时，使用 `_fallback_text_reader()`。
+
+```python
+def _convert_to_markdown(path: str) -> str:
+    """
+    Universal document reader using MarkItDown with enhanced PDF processing.
+    核心功能：将任意格式文档转换为Markdown文本
+    
+    支持格式：
+    - 文档：PDF、Word、Excel、PowerPoint
+    - 图像：JPG、PNG、GIF（通过OCR）
+    - 音频：MP3、WAV、M4A（通过转录）
+    - 文本：TXT、CSV、JSON、XML、HTML
+    - 代码：Python、JavaScript、Java等
+    """
+    if not os.path.exists(path):
+        return ""
+    
+    # 对PDF文件使用增强处理
+    ext = (os.path.splitext(path)[1] or '').lower()
+    if ext == '.pdf':
+        return _enhanced_pdf_processing(path)
+    
+    # 其他格式使用MarkItDown统一转换
+    md_instance = _get_markitdown_instance()
+    if md_instance is None:
+        return _fallback_text_reader(path)
+    
+    try:
+        result = md_instance.convert(path)
+        markdown_text = getattr(result, "text_content", None)
+        if isinstance(markdown_text, str) and markdown_text.strip():
+            print(f"[RAG] MarkItDown转换成功: {path} -> {len(markdown_text)} chars Markdown")
+            return markdown_text
+        return ""
+    except Exception as e:
+        print(f"[WARNING] MarkItDown转换失败 {path}: {e}")
+        return _fallback_text_reader(path)
+```
+
+**（2）智能分块策略**
+
+RAG 采用**基于 Markdown 结构感知的智能分块策略**，结合标题层次、语义边界、Token 数量及重叠机制，保证文本完整性和上下文连续性。
+
+**分块流程：**
+
+```text
+标准Markdown文本 → 标题层次解析 → 段落语义分割 → Token计算分块 → 重叠策略优化 → 向量化准备
+       ↓                ↓              ↓            ↓           ↓            ↓
+   统一格式          #/##/###        语义边界      大小控制     信息连续性    嵌入向量
+   结构清晰          层次识别        完整性保证    检索优化     上下文保持    相似度匹配
+```
+
+**Markdown 标题与段落解析**
+
+`_split_paragraphs_with_headings()` 根据 Markdown 标题层级划分段落，记录标题路径 `heading_path` 及文本位置，尽量保持语义完整性。
+
+```python
+def _split_paragraphs_with_headings(text: str) -> List[Dict]:
+    """根据标题层次分割段落，保持语义完整性"""
+    lines = text.splitlines()
+    heading_stack: List[str] = []
+    paragraphs: List[Dict] = []
+    buf: List[str] = []
+    char_pos = 0
+    
+    def flush_buf(end_pos: int):
+        if not buf:
+            return
+        content = "\n".join(buf).strip()
+        if not content:
+            return
+        paragraphs.append({
+            "content": content,
+            "heading_path": " > ".join(heading_stack) if heading_stack else None,
+            "start": max(0, end_pos - len(content)),
+            "end": end_pos,
+        })
+    
+    for ln in lines:
+        raw = ln
+        if raw.strip().startswith("#"):
+            # 处理标题行
+            flush_buf(char_pos)
+            level = len(raw) - len(raw.lstrip('#'))
+            title = raw.lstrip('#').strip()
+            
+            if level <= 0:
+                level = 1
+            if level <= len(heading_stack):
+                heading_stack = heading_stack[:level-1]
+            heading_stack.append(title)
+            
+            char_pos += len(raw) + 1
+            continue
+        
+        # 段落内容累积
+        if raw.strip() == "":
+            flush_buf(char_pos)
+            buf = []
+        else:
+            buf.append(raw)
+        char_pos += len(raw) + 1
+    
+    flush_buf(char_pos)
+    
+    if not paragraphs:
+        paragraphs = [{"content": text, "heading_path": None, "start": 0, "end": len(text)}]
+    
+    return paragraphs
+```
+
+**基于 Token 的分块与重叠**
+
+`_chunk_paragraphs()` 根据 Token 数量组合段落，并通过重叠策略保留相邻分块的上下文。
+
+- **`chunk_tokens`**：控制分块大小。
+- **`overlap_tokens`**：控制相邻分块的重叠量。
+- **`heading_path`**：保留分块所属的标题层次。
+- **`start` / `end`**：记录分块位置。
+
+```python
+def _chunk_paragraphs(paragraphs: List[Dict], chunk_tokens: int, overlap_tokens: int) -> List[Dict]:
+    """基于Token数量的智能分块"""
+    chunks: List[Dict] = []
+    cur: List[Dict] = []
+    cur_tokens = 0
+    i = 0
+    
+    while i < len(paragraphs):
+        p = paragraphs[i]
+        p_tokens = _approx_token_len(p["content"]) or 1
+        
+        if cur_tokens + p_tokens <= chunk_tokens or not cur:
+            cur.append(p)
+            cur_tokens += p_tokens
+            i += 1
+        else:
+            # 生成当前分块
+            content = "\n\n".join(x["content"] for x in cur)
+            start = cur[0]["start"]
+            end = cur[-1]["end"]
+            heading_path = next((x["heading_path"] for x in reversed(cur) if x.get("heading_path")), None)
+            
+            chunks.append({
+                "content": content,
+                "start": start,
+                "end": end,
+                "heading_path": heading_path,
+            })
+            
+            # 构建重叠部分
+            if overlap_tokens > 0 and cur:
+                kept: List[Dict] = []
+                kept_tokens = 0
+                for x in reversed(cur):
+                    t = _approx_token_len(x["content"]) or 1
+                    if kept_tokens + t > overlap_tokens:
+                        break
+                    kept.append(x)
+                    kept_tokens += t
+                cur = list(reversed(kept))
+                cur_tokens = kept_tokens
+            else:
+                cur = []
+                cur_tokens = 0
+    
+    # 处理最后一个分块
+    if cur:
+        content = "\n\n".join(x["content"] for x in cur)
+        start = cur[0]["start"]
+        end = cur[-1]["end"]
+        heading_path = next((x["heading_path"] for x in reversed(cur) if x.get("heading_path")), None)
+        
+        chunks.append({
+            "content": content,
+            "start": start,
+            "end": end,
+            "heading_path": heading_path,
+        })
+    
+    return chunks
+```
+
+**Token 数量估算**
+
+`_approx_token_len()` 通过近似算法估算中英文混合文本的 Token 数量：
+
+- **CJK 字符**：每个字符按 1 个 Token 估算。
+- **其他文本**：按空白分词统计。
+- **`_is_cjk()`**：通过 Unicode 范围判断 CJK 字符。
+
+```python
+def _approx_token_len(text: str) -> int:
+    """近似估计Token长度，支持中英文混合"""
+    # CJK字符按1 token计算
+    cjk = sum(1 for ch in text if _is_cjk(ch))
+    # 其他字符按空白分词计算
+    non_cjk_tokens = len([t for t in text.split() if t])
+    return cjk + non_cjk_tokens
+
+def _is_cjk(ch: str) -> bool:
+    """判断是否为CJK字符"""
+    code = ord(ch)
+    return (
+        0x4E00 <= code <= 0x9FFF or  # CJK统一汉字
+        0x3400 <= code <= 0x4DBF or  # CJK扩展A
+        0x20000 <= code <= 0x2A6DF or # CJK扩展B
+        0x2A700 <= code <= 0x2B73F or # CJK扩展C
+        0x2B740 <= code <= 0x2B81F or # CJK扩展D
+        0x2B820 <= code <= 0x2CEAF or # CJK扩展E
+        0xF900 <= code <= 0xFAFF      # CJK兼容汉字
+    )
+```
+
+**（3）统一嵌入与向量存储**
+
+`index_chunks()` 负责将 Markdown 文本块转换为向量，为 Qdrant 存储与检索做准备。
+
+核心功能：
+
+- **统一嵌入模型**：通过 `get_text_embedder()` 获取嵌入器，优先使用百炼 API，支持本地模型回退。
+- **向量存储初始化**：未提供 `store` 时，自动创建 Qdrant 向量存储。
+- **文本预处理**：使用 `_preprocess_markdown_for_embedding()` 优化嵌入文本。
+- **批量向量化**：按 `batch_size` 分批编码，默认每批 `64` 条。
+- **向量标准化**：统一转换为浮点数列表，并检查、调整向量维度。
+- **异常处理**：记录编码错误、向量转换失败及处理进度。
+
+```python
+def index_chunks(
+    store = None, 
+    chunks: List[Dict] = None, 
+    cache_db: Optional[str] = None, 
+    batch_size: int = 64,
+    rag_namespace: str = "default"
+) -> None:
+    """
+    Index markdown chunks with unified embedding and Qdrant storage.
+    Uses百炼 API with fallback to sentence-transformers.
+    """
+    if not chunks:
+        print("[RAG] No chunks to index")
+        return
+    
+    # 使用统一嵌入模型
+    embedder = get_text_embedder()
+    dimension = get_dimension(384)
+    
+    # 创建默认Qdrant存储
+    if store is None:
+        store = _create_default_vector_store(dimension)
+        print(f"[RAG] Created default Qdrant store with dimension {dimension}")
+    
+    # 预处理Markdown文本以获得更好的嵌入质量
+    processed_texts = []
+    for c in chunks:
+        raw_content = c["content"]
+        processed_content = _preprocess_markdown_for_embedding(raw_content)
+        processed_texts.append(processed_content)
+    
+    print(f"[RAG] Embedding start: total_texts={len(processed_texts)} batch_size={batch_size}")
+    
+    # 批量编码
+    vecs: List[List[float]] = []
+    for i in range(0, len(processed_texts), batch_size):
+        part = processed_texts[i:i+batch_size]
+        try:
+            # 使用统一嵌入器（内部处理缓存）
+            part_vecs = embedder.encode(part)
+            
+            # 标准化为List[List[float]]格式
+            if not isinstance(part_vecs, list):
+                if hasattr(part_vecs, "tolist"):
+                    part_vecs = [part_vecs.tolist()]
+                else:
+                    part_vecs = [list(part_vecs)]
+            
+            # 处理向量格式和维度
+            for v in part_vecs:
+                try:
+                    if hasattr(v, "tolist"):
+                        v = v.tolist()
+                    v_norm = [float(x) for x in v]
+                    
+                    # 维度检查和调整
+                    if len(v_norm) != dimension:
+                        print(f"[WARNING] 向量维度异常: 期望{dimension}, 实际{len(v_norm)}")
+                        if len(v_norm) < dimension:
+                            v_norm.extend([0.0] * (dimension - len(v_norm)))
+                        else:
+                            v_norm = v_norm[:dimension]
+                    
+                    vecs.append(v_norm)
+                except Exception as e:
+                    print(f"[WARNING] 向量转换失败: {e}, 使用零向量")
+                    vecs.append([0.0] * dimension)
+                    
+        except Exception as e:
+            print(f"[WARNING] Batch {i} encoding failed: {e}")
+            # 实现重试机制
+            # ... 重试逻辑 ...
+        
+        print(f"[RAG] Embedding progress: {min(i+batch_size, len(processed_texts))}/{len(processed_texts)}")
+```
+
+#### 8.3.5 高级检索策略
+
+**（1）多查询扩展（MQE）**
+
+**多查询扩展（Multi-Query Expansion，MQE）** 通过生成语义等价或互补的多个查询，提高检索召回率，减少因表达差异造成的信息遗漏。
+
+例如，将“如何学习 Python”扩展为：
+
+- Python 入门教程
+- Python 学习方法
+- Python 编程指南
+
+**核心流程：**
+
+1. **查询扩展**：使用 LLM 生成多样化、语义相关的查询。
+2. **并行检索**：分别执行扩展查询，扩大文档覆盖范围。
+3. **结果合并**：整合检索结果，提高召回率。
+
+**主要优势**：适用于模糊查询或专业术语查询，能够覆盖不同表达方式对应的相关文档。
+
+```python
+def _prompt_mqe(query: str, n: int) -> List[str]:
+    """使用LLM生成多样化的查询扩展"""
+    try:
+        from ...core.llm import HelloAgentsLLM
+        llm = HelloAgentsLLM()
+        prompt = [
+            {"role": "system", "content": "你是检索查询扩展助手。生成语义等价或互补的多样化查询。使用中文，简短，避免标点。"},
+            {"role": "user", "content": f"原始查询：{query}\n请给出{n}个不同表述的查询，每行一个。"}
+        ]
+        text = llm.invoke(prompt)
+        lines = [ln.strip("- \t") for ln in (text or "").splitlines()]
+        outs = [ln for ln in lines if ln]
+        return outs[:n] or [query]
+    except Exception:
+        return [query]
+```
+
+**（2）假设文档嵌入（HyDE）**
+
+**假设文档嵌入（Hypothetical Document Embeddings，HyDE）** 是一种“用答案找答案”的检索技术，旨在缩小问题与文档之间的语义差异。
+
+**核心原理**：先让 LLM 生成假设性答案，再将其向量化，用于检索真实文档。
+
+**核心流程：**
+
+1. **生成假设答案**：LLM 根据用户问题生成包含关键术语的答案段落。
+2. **向量化检索**：将假设答案转换为向量，匹配真实文档。
+3. **获取相关文档**：利用答案与文档之间的语义相似性，提高检索准确性。
+
+**主要优势**：即使假设答案不完全正确，其关键术语和语义表达仍能辅助检索，尤其适用于专业领域查询。
+
+```python
+def _prompt_hyde(query: str) -> Optional[str]:
+    """生成假设性文档用于改善检索"""
+    try:
+        from ...core.llm import HelloAgentsLLM
+        llm = HelloAgentsLLM()
+        prompt = [
+            {"role": "system", "content": "根据用户问题，先写一段可能的答案性段落，用于向量检索的查询文档（不要分析过程）。"},
+            {"role": "user", "content": f"问题：{query}\n请直接写一段中等长度、客观、包含关键术语的段落。"}
+        ]
+        return llm.invoke(prompt)
+    except Exception:
+        return None
+```
+
+**（3）扩展检索框架**
+
+扩展检索采用 **“扩展 → 检索 → 合并”** 三步流程，结合 MQE 和 HyDE 提高检索召回率。
+
+**核心流程：**
+
+1. **查询扩展**：保留原始查询，并通过 MQE 生成多样化查询、HyDE 生成假设文档。
+2. **向量检索**：对各扩展查询进行向量化，检索候选文档。
+3. **结果合并**：按 `memory_id` 去重，保留最高相似度得分，排序后返回 Top-K 结果。
+
+**关键参数：**
+
+- **`top_k`**：最终返回的文档数量，默认 `8`。
+- **`enable_mqe` / `enable_hyde`**：控制是否启用查询扩展策略。
+- **`mqe_expansions`**：MQE 扩展查询数量，默认 `2`。
+- **`candidate_pool_multiplier`**：候选池扩展倍数，默认 `4`，扩大检索范围。
+- **`score_threshold`**：相似度过滤阈值。
+- **`rag_namespace`**：指定知识库命名空间。
+
+```python
+def search_vectors_expanded(
+    store = None,
+    query: str = "",
+    top_k: int = 8,
+    rag_namespace: Optional[str] = None,
+    only_rag_data: bool = True,
+    score_threshold: Optional[float] = None,
+    enable_mqe: bool = False,
+    mqe_expansions: int = 2,
+    enable_hyde: bool = False,
+    candidate_pool_multiplier: int = 4,
+) -> List[Dict]:
+    """
+    Search with query expansion using unified embedding and Qdrant.
+    """
+    if not query:
+        return []
+    
+    # 创建默认存储
+    if store is None:
+        store = _create_default_vector_store()
+    
+    # 查询扩展
+    expansions: List[str] = [query]
+    
+    if enable_mqe and mqe_expansions > 0:
+        expansions.extend(_prompt_mqe(query, mqe_expansions))
+    if enable_hyde:
+        hyde_text = _prompt_hyde(query)
+        if hyde_text:
+            expansions.append(hyde_text)
+
+    # 去重和修剪
+    uniq: List[str] = []
+    for e in expansions:
+        if e and e not in uniq:
+            uniq.append(e)
+    expansions = uniq[: max(1, len(uniq))]
+
+    # 分配候选池
+    pool = max(top_k * candidate_pool_multiplier, 20)
+    per = max(1, pool // max(1, len(expansions)))
+
+    # 构建RAG数据过滤器
+    where = {"memory_type": "rag_chunk"}
+    if only_rag_data:
+        where["is_rag_data"] = True
+        where["data_source"] = "rag_pipeline"
+    if rag_namespace:
+        where["rag_namespace"] = rag_namespace
+
+    # 收集所有扩展查询的结果
+    agg: Dict[str, Dict] = {}
+    for q in expansions:
+        qv = embed_query(q)
+        hits = store.search_similar(
+            query_vector=qv, 
+            limit=per, 
+            score_threshold=score_threshold, 
+            where=where
+        )
+        for h in hits:
+            mid = h.get("metadata", {}).get("memory_id", h.get("id"))
+            s = float(h.get("score", 0.0))
+            if mid not in agg or s > float(agg[mid].get("score", 0.0)):
+                agg[mid] = h
+    
+    # 按分数排序返回
+    merged = list(agg.values())
+    merged.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
+    return merged[:top_k]
+```
+
+### 8.4 构建智能文档问答助手
+
+#### 8.4.1 案例背景与目标
+
+实现以下功能：
+
+智能文档处理：使用MarkItDown实现PDF到Markdown的统一转换，基于Markdown结构的智能分块策略，高效的向量化和索引构建
+
+高级检索问答：多查询扩展（MQE）提升召回率，假设文档嵌入（HyDE）改善检索精度，上下文感知的智能问答
+
+多层次记忆管理：工作记忆管理当前学习任务和上下文，情景记忆记录学习事件和查询历史，语义记忆存储概念知识和理解，感知记忆处理文档特征和多模态信息
+
+个性化学习支持：基于学习历史的个性化推荐，记忆整合和选择性遗忘，学习报告生成和进度追踪
+
+#### 8.4.2 核心助手类的实现
+
+**（1）类的初始化**
+
+`PDFLearningAssistant` 整合 **MemoryTool** 与 **RAGTool**，实现用户数据隔离、会话管理和学习统计。
+
+核心功能：
+
+- **记忆管理（MemoryTool）**：通过 `user_id` 隔离不同用户的工作、情景、语义和感知记忆。
+- **知识库管理（RAGTool）**：通过 `rag_namespace=f"pdf_{user_id}"` 为每个用户创建独立的 PDF 知识库。
+- **会话管理（`session_id`）**：记录单次学习会话，便于历史回顾与分析。
+- **学习统计（`stats`）**：记录会话开始时间、文档数量、提问次数和已学习概念数。
+- **当前文档（`current_document`）**：保存当前加载的文档信息。
+
+```python
+class PDFLearningAssistant:
+    """智能文档问答助手"""
+
+    def __init__(self, user_id: str = "default_user"):
+        """初始化学习助手
+
+        Args:
+            user_id: 用户ID，用于隔离不同用户的数据
+        """
+        self.user_id = user_id
+        self.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # 初始化工具
+        self.memory_tool = MemoryTool(user_id=user_id)
+        self.rag_tool = RAGTool(rag_namespace=f"pdf_{user_id}")
+
+        # 学习统计
+        self.stats = {
+            "session_start": datetime.now(),
+            "documents_loaded": 0,
+            "questions_asked": 0,
+            "concepts_learned": 0
+        }
+
+        # 当前加载的文档
+        self.current_document = None
+```
+
+**（2）加载 PDF 文档**
+
+`load_document()` 负责将 PDF 导入知识库，并通过 **RAGTool + MemoryTool** 完成文档处理和学习记录。
+
+核心流程：
+
+1. **文件检查**：验证 PDF 路径是否存在。
+2. **RAG 处理**：执行文档转换、智能分块及向量化存储。
+3. **状态更新**：记录当前文档、加载数量和处理耗时。
+4. **记忆存储**：通过 MemoryTool 将文档加载事件写入情景记忆。
+5. **结果返回**：返回加载状态、文档名称或错误信息。
+
+```python
+def load_document(self, pdf_path: str) -> Dict[str, Any]:
+    """加载PDF文档到知识库
+
+    Args:
+        pdf_path: PDF文件路径
+
+    Returns:
+        Dict: 包含success和message的结果
+    """
+    if not os.path.exists(pdf_path):
+        return {"success": False, "message": f"文件不存在: {pdf_path}"}
+
+    start_time = time.time()
+
+    # 【RAGTool】处理PDF: MarkItDown转换 → 智能分块 → 向量化
+    result = self.rag_tool.execute(
+        "add_document",
+        file_path=pdf_path,
+        chunk_size=1000,
+        chunk_overlap=200
+    )
+
+    process_time = time.time() - start_time
+
+    if result.get("success", False):
+        self.current_document = os.path.basename(pdf_path)
+        self.stats["documents_loaded"] += 1
+
+        # 【MemoryTool】记录到学习记忆
+        self.memory_tool.execute(
+            "add",
+            content=f"加载了文档《{self.current_document}》",
+            memory_type="episodic",
+            importance=0.9,
+            event_type="document_loaded",
+            session_id=self.session_id
+        )
+
+        return {
+            "success": True,
+            "message": f"加载成功！(耗时: {process_time:.1f}秒)",
+            "document": self.current_document
+        }
+    else:
+        return {
+            "success": False,
+            "message": f"加载失败: {result.get('error', '未知错误')}"
+        }
+```
+
+**RAGTool：文档处理**
+
+调用 `add_document` 执行 **MarkItDown 转换 → 智能分块 → 向量化存储**。
+
+关键参数：
+
+- **`file_path`**：PDF 文件路径。
+- **`chunk_size=1000`**：文本分块大小。
+- **`chunk_overlap=200`**：相邻分块的重叠量。
+- **返回结果**：包含处理状态与相关信息。
+
+```python
+result = self.rag_tool.execute(
+    "add_document",
+    file_path=pdf_path,
+    chunk_size=1000,
+    chunk_overlap=200
+)
+```
+
+**MemoryTool：记录学习事件**
+
+加载成功后，将文档加载事件保存为**情景记忆（Episodic Memory）**。
+
+- **`memory_type="episodic"`**：记录具体的学习事件。
+- **`importance=0.9`**：标记事件的重要程度。
+- **`event_type="document_loaded"`**：标记事件类型。
+- **`session_id`**：关联当前学习会话。
+
+```python
+self.memory_tool.execute(
+    "add",
+    content=f"加载了文档《{self.current_document}》",
+    memory_type="episodic",
+    importance=0.9,
+    event_type="document_loaded",
+    session_id=self.session_id
+)
+```
+
+**选择情景记忆的原因**：文档加载属于具体的、具有时间信息的事件，适合长期记录。
+
+通过这些记录，系统可以**检索历史加载文档、追踪学习历程和文档使用情况**，为个性化服务提供依据。
+
+#### 8.4.3 智能问答功能
+**（3）向文档提问**
+
+`ask()` 结合 **MemoryTool + RAGTool** 实现文档问答，支持 MQE 和 HyDE 高级检索。
+
+核心流程：
+
+1. **文档检查**：确认已加载 PDF 文档。
+2. **工作记忆**：记录当前问题，重要性为 `0.6`。
+3. **RAG 问答**：检索相关知识并生成答案，可启用 MQE 和 HyDE。
+4. **情景记忆**：记录问答事件，重要性为 `0.7`。
+5. **统计更新**：增加提问次数并返回答案。
+
+```python
+def ask(self, question: str, use_advanced_search: bool = True) -> str:
+    """向文档提问
+
+    Args:
+        question: 用户问题
+        use_advanced_search: 是否使用高级检索（MQE + HyDE）
+
+    Returns:
+        str: 答案
+    """
+    if not self.current_document:
+        return "⚠️ 请先加载文档！"
+
+    # 【MemoryTool】记录问题到工作记忆
+    self.memory_tool.execute(
+        "add",
+        content=f"提问: {question}",
+        memory_type="working",
+        importance=0.6,
+        session_id=self.session_id
+    )
+
+    # 【RAGTool】使用高级检索获取答案
+    answer = self.rag_tool.execute(
+        "ask",
+        question=question,
+        limit=5,
+        enable_advanced_search=use_advanced_search,
+        enable_mqe=use_advanced_search,
+        enable_hyde=use_advanced_search
+    )
+
+    # 【MemoryTool】记录到情景记忆
+    self.memory_tool.execute(
+        "add",
+        content=f"关于'{question}'的学习",
+        memory_type="episodic",
+        importance=0.7,
+        event_type="qa_interaction",
+        session_id=self.session_id
+    )
+
+    self.stats["questions_asked"] += 1
+
+    return answer
+```
+
+**多查询扩展（MQE）**
+
+通过 LLM 生成语义等价、表达不同的查询，从多个角度检索相关文档，提升召回率（原文称可提升 `30%～50%`）。
+
+```python
+# 生成多样化查询
+expanded_queries = self._generate_multi_queries(question)
+# 例如，对于"什么是大语言模型？"，可能生成：
+# - "大语言模型的定义是什么？"
+# - "请解释一下大语言模型"
+# - "LLM是什么意思？"
+```
+
+**假设文档嵌入（HyDE）**
+
+先由 LLM 生成假设性答案文档，再利用其向量检索真实文档，缩小问题与文档之间的语义差异，提高检索相关性。
+
+## 第九章 上下文工程
+
+### 9.1 什么是上下文工程
+
+**上下文工程（Context Engineering）** 是指在 LLM 的约束下，合理组织和优化输入模型的 **Token 集合**，使模型能够稳定地产生预期行为。
+
+这里的**上下文（Context）**，是指 LLM 在每次推理时能够看到的全部信息。上下文工程不仅关注输入内容，还需要考虑这些信息如何影响模型行为。
+
+**（1）上下文工程 vs. 提示工程**
+
+- **提示工程（Prompt Engineering）**：关注如何设计和组织指令，包括系统提示词、措辞及结构，以优化模型输出。
+- **上下文工程（Context Engineering）**：关注如何选择、组织和维护进入上下文窗口的全部信息，而不仅是提示词。
+
+上下文工程管理的信息包括：
+
+- **系统指令（System Instructions）**
+- **工具（Tools）与 MCP（Model Context Protocol）**
+- **外部数据（External Data）**
+- **消息历史（Message History）**
+
+**（2）为什么需要上下文工程？**
+
+早期 LLM 应用主要处理单轮分类和文本生成，提示工程通常能够满足需求。
+
+随着智能体需要**跨多轮推理、长时间执行任务**，上下文信息不断积累，仅优化提示词已不够。
+
+因此，上下文工程需要解决两个核心问题：
+
+1. **上下文管理**：持续整理、提炼智能体运行过程中产生的信息。
+2. **信息筛选**：从不断增长的候选信息中，选择最有价值的内容放入有限的上下文窗口。
+
+其核心目标是：**在有限的 Token 预算内，最大化上下文的信息价值，提高智能体行为的稳定性与准确性。**
+
+### 9.2 为什么上下文工程重要
+
+**上下文腐蚀（Context Rot）**：随着上下文窗口中的 Token 增加，模型准确提取和利用信息的能力可能下降。
+
+主要原因：
+
+- **架构限制**：Transformer 的自注意力机制涉及 \(O(n^2)\) 级别的 Token 关联，随着上下文增长，模型更难有效关注所有相关信息。
+- **训练数据分布**：短序列通常比长序列更常见，模型对长距离上下文依赖的学习相对不足。
+
+因此，**上下文窗口越大，不代表信息利用效果越好**，需要通过上下文工程提高信息质量。
+
+#### 9.2.1 有效上下文的“解剖学”
+
+上下文工程的核心目标是：**用尽可能少、信息密度尽可能高的 Token，提高模型产生预期结果的概率。**
+
+**（1）系统提示（System Prompt）**
+
+系统提示应清晰、直接，并保持适当的信息粒度。
+
+常见问题：
+
+- **过度硬编码**：大量复杂的 `if-else` 规则使提示脆弱、难以维护。
+- **过于空泛**：只有宏观目标，缺乏具体行为指引。
+
+优化策略：
+
+- 使用 XML 或 Markdown 分区组织背景信息、工具指引、输出要求等。
+- 追求**最小必要信息集**，而非单纯缩短提示词。
+- 从最小提示开始测试，根据失败情况补充指令和示例。
+
+**（2）工具（Tools）**
+
+工具定义了智能体与外部信息及操作能力的交互接口。
+
+设计原则：
+
+- **职责清晰**：工具功能单一，避免相互重叠。
+- **接口明确**：参数描述准确，避免歧义。
+- **鲁棒性强**：能够有效处理异常和错误。
+- **Token 友好**：返回简洁、有效的信息，减少上下文消耗。
+
+避免功能重叠、边界模糊的**臃肿工具集**，优先构建**最小可行工具集（MVTS）**，提高稳定性与可维护性。
+
+**（3）少样本示例（Few-shot）**
+
+通过少量高质量示例，让模型直观理解期望行为。
+
+- **多样性**：选择具有代表性的不同场景。
+- **典型性**：突出核心行为和输出要求。
+- **精简性**：避免堆砌所有边界条件，减少无效 Token。
+
+#### 9.2.2 上下文检索与智能体式搜索
+
+智能体可以理解为**在循环中自主调用工具的 LLM**。
+
+上下文管理正从**预先一次性检索**转向**即时上下文（Just-in-time，JIT Context）**，即按需获取信息，而非提前加载全部数据。
+
+**（1）即时上下文（JIT）**
+
+核心思想：**保留轻量化引用，运行时按需检索和加载数据。**
+
+- **轻量化引用**：保存文件路径、数据库查询、URL 等，而非完整数据。
+- **动态检索**：通过工具生成针对性查询，按需获取和缓存结果。
+- **高效处理**：使用 `head`、`tail` 等命令分析大规模数据，减少 Token 消耗。
+- **元数据利用**：通过目录层级、文件命名、时间戳判断信息用途与时效性。
+
+**（2）渐进式披露（Progressive Disclosure）**
+
+允许智能体自主探索，利用每一步获得的信息指导后续检索。
+
+- **逐层理解**：根据文件大小、名称和时间戳逐步判断相关性。
+- **按需加载**：工作记忆仅保留当前任务需要的信息。
+- **信息持久化**：通过记录笔记保存重要发现，避免上下文持续膨胀。
+
+**（3）局限性与混合策略**
+
+即时检索虽然节省上下文空间，但也存在一定成本：
+
+- **执行延迟**：运行时探索通常比预计算检索更慢。
+- **工具依赖**：需要合理的工具设计与检索策略，否则容易误用工具、遗漏信息或浪费上下文。
+
+因此，更有效的方式是采用**混合策略**：
+
+1. **预加载**：提前提供少量高价值上下文，保证响应速度。
+2. **按需探索**：允许智能体根据任务动态检索补充信息。
+3. **工具支持**：预加载 README、项目指南等文件，并提供 `glob`、`grep` 等工具定位具体内容。
+
+#### 9.2.3 面向长时程任务的上下文工程
+
+长时程任务（如大型代码库迁移、长期研究）要求智能体在**跨越上下文窗口的多轮执行中，保持信息连贯、状态一致和目标导向**。
+
+**（1）压缩整合（Compaction）**
+
+当上下文接近容量上限时，将历史信息压缩为高保真摘要，并在新的上下文窗口中继续执行任务。
+
+- **保留关键信息**：架构决策、未解决问题、实现细节等。
+- **清理冗余内容**：删除重复的工具调用结果和无关信息。
+- **上下文接力**：新窗口携带摘要及少量近期相关文件。
+- **优化原则**：先保证关键信息的召回率，再减少冗余；可优先清理较早的工具调用记录。
+
+**（2）结构化笔记（Structured Note-taking）**
+
+也称**智能体记忆**，通过外部持久化存储记录关键信息，并在需要时重新检索。
+
+- **持久化状态**：维护 TODO、`NOTES.md`、关键结论、依赖关系和阻塞项。
+- **跨窗口连续性**：即使多轮工具调用或上下文重置，也能保持任务进度。
+- **降低上下文开销**：只在需要时读取相关笔记。
+- **实现方式**：结合第八章的 `MemoryTool`，使用文件式或向量式记忆。
+
+适用于迭代开发、长期研究及其他需要持续状态管理的任务。
+
+**（3）子代理架构（Sub-agent Architectures）**
+
+由**主代理负责规划与结果整合，多个子代理在独立上下文中执行具体任务**。
+
+- **任务分工**：子代理负责专项研究、工具调用与信息探索。
+- **独立上下文**：复杂搜索过程保留在子代理内部，避免污染主代理上下文。
+- **摘要回传**：子代理仅返回精炼结果，通常为 `1,000～2,000 Tokens`。
+- **并行协作**：适合复杂研究与分析任务，能够提升信息处理效率。
+
+**三种策略的适用场景**
+
+| 策略 | 核心作用 | 适用场景 |
+|---|---|---|
+| **Compaction** | 压缩历史信息，实现上下文接力 | 长对话、连续执行任务 |
+| **Structured Note-taking** | 持久化关键状态与阶段成果 | 迭代开发、长期研究 |
+| **Sub-agent Architectures** | 分离上下文，实现并行探索 | 复杂研究、多任务分析 |
+
+### 9.3 在 Hello-Agents 中的实践：ContextBuilder
+
+#### 9.3.1 设计动机与目标
+
+`ContextBuilder` 旨在统一上下文管理流程，减少重复代码，提高上下文的稳定性与利用效率。
+
+核心设计目标：
+
+**（1）统一入口**
+
+将上下文管理抽象为可复用的四步流水线：
+
+**Gather（获取）→ Select（选择）→ Structure（结构化）→ Compress（压缩）**
+
+避免在不同 Agent 中重复实现上下文管理逻辑。
+
+**（2）稳定形态**
+
+使用固定的上下文模板，便于调试、A/B 测试与评估。
+
+| 模块 | 作用 |
+|---|---|
+| **Role & Policies** | Agent 角色定位与行为准则 |
+| **Task** | 当前任务 |
+| **State** | Agent 当前状态 |
+| **Evidence** | 外部知识库检索的证据 |
+| **Context** | 历史对话与相关记忆 |
+| **Output** | 期望的输出格式与要求 |
+
+**（3）预算守护**
+
+在有限的 **Token 预算**内优先保留高价值信息，并对超限上下文执行兜底压缩，保证系统稳定运行。
+
+**（4）最小规则**
+
+避免引入复杂的来源、优先级分类，采用**相关性与新近性**进行简单评分，降低系统复杂度。
+
 
