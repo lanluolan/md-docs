@@ -431,7 +431,7 @@ RNN 和 LSTM 通过循环结构处理序列，但必须按时间步顺序计算�
 
 最初的 Transformer 面向机器翻译任务，采用**编码器-解码器（Encoder-Decoder）**架构。
 
-![](pic/hello_agent/transformer-encoder-decoder-architecture.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/transformer-encoder-decoder-architecture.png)
 
 - **编码器（Encoder）**：读取所有输入词元，为每个词元生成包含上下文信息的向量表示。
 - **解码器（Decoder）**：结合已生成的前文和编码器的输出，逐步预测并生成下一个词元。
@@ -529,7 +529,7 @@ $$
 2. **并行计算**：每个头独立执行注意力计算，捕捉不同的特征关系。
 3. **拼接与映射**：拼接所有头的输出，再通过线性变换得到最终结果。
 
-![](pic/hello_agent/multi-head-attention-architecture.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/multi-head-attention-architecture.png)
 
 ```python
 class MultiHeadAttention(nn.Module):
@@ -3787,7 +3787,7 @@ if __name__ == "__main__":
     test_calculator_tool()
 ```
 
-![](pic/hello_agent/agent-tool-execution-sequence.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/agent-tool-execution-sequence.png)
 
 ## 第八章 记忆与检索
 
@@ -3820,7 +3820,7 @@ LLM 的内置知识主要来自训练数据，具有**静态性和有限性**，
 - **`memory_tool`**：存储、管理和维护对话交互信息。
 - **`rag_tool`**：从外部知识库检索相关内容，为 LLM 提供上下文，并可将重要检索结果存入记忆系统。
 
-![](pic/hello_agent/agent-memory-system-architecture.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/agent-memory-system-architecture.png)
 
 **（1）记忆系统架构**
 
@@ -3882,9 +3882,9 @@ RAG系统
 
 #### 8.2.1 记忆系统的工作流程
 
-![](pic/hello_agent/memory-system-process.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/memory-system-process.png)
 
-![](pic/hello_agent/rag-query-generation-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/rag-query-generation-flow.png)
 
 记忆系统主要由四种记忆类型组成：
 
@@ -4730,7 +4730,7 @@ RAG 进一步向**模块化、自动化和智能化**发展，各组件可独立
 
 #### 8.3.2 RAG 系统工作原理
 
-![](pic/hello_agent/rag-document-query-pipeline.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/hello_agent/rag-document-query-pipeline.png)
 
 RAG 系统包含两个主要工作流程：
 

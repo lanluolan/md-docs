@@ -94,7 +94,7 @@
 
 ### 一、13个大模型核心概念
 
-![](pic/agent/llm-concept-evolution.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/llm-concept-evolution.png)
 
 #### Prompt：提供给大模型的输入
 
@@ -599,7 +599,7 @@ System Prompt 放全局设定，如角色、规则、风格和约束；User Prom
 
 ### 三、Few-shot、CoT(Chain-of-Thought) 与 Reflection
 
-![](pic/agent/few-shot-cot-reflection-workflow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/few-shot-cot-reflection-workflow.png)
 
 #### Few-shot：给模型看“标准示例”
 
@@ -900,7 +900,7 @@ Context Engineering 的核心，就是在模型推理时**持续选择和维护�
 - **状态摘要：** 跨轮次需要持续保留的目标、约束、进度和决定；
 - **外部记忆：** 完整历史、文档、日志和结构化事实，需要时再检索。
 
-![](pic/agent/long-conversation-memory-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/long-conversation-memory-flow.png)
 
 每轮结束后，系统要判断新信息该放哪里：当前要用的留在上下文，长期有效的写入状态或外部记忆，纯过程信息只保留日志或引用地址。
 
@@ -961,7 +961,7 @@ RAG 是 Context Engineering 的重要组成部分，主要解决“**找什么�
 - **缓存 Token：** 命中 Prompt Cache 的重复输入，具体计费规则取决于模型 API；
 - **推理 Token：** 部分推理模型内部使用，是否可见、计费或占用窗口需要看具体接口说明。
 
-![](pic/agent/token-cost-and-latency-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/token-cost-and-latency-flow.png)
 
 #### 一次请求到底花多少钱？
 
@@ -1114,7 +1114,7 @@ RAG 更适合以下场景：
 
 #### 链路总览
 
-![](pic/agent/rag-indexing-and-query-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/rag-indexing-and-query-flow.png)
 
 #### 离线阶段
 
@@ -1368,7 +1368,7 @@ RAG 中 Query 往往较短，而文档片段较长，因此应关注模型是否
 
 可以简单理解为：**Embedding 负责粗召回，Rerank 负责精排。**
 
-![](pic/agent/embedding-and-reranking.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/embedding-and-reranking.png)
 
 - **Embedding（Bi-Encoder）：** Query 和文档分别编码成向量，通过余弦相似度等方式快速检索。文档向量可以提前计算并存入向量库，因此速度快，适合从海量文档中召回 Top-K。
 - **Rerank（Cross-Encoder）：** 将 Query 和候选 Chunk 一起输入模型，直接计算相关性分数。语义判断更准确，但无法提前计算，速度更慢，因此只适合对少量候选结果精排。
@@ -1909,7 +1909,7 @@ Overlap 主要缓解相邻 Chunk 的边界断裂；Parent-Child 则显式保存�
 
 **RAGAS（Retrieval-Augmented Generation Assessment）** 是 RAG 场景中常用的自动化评估框架，可以借助 LLM 从多个维度评估生成结果的质量。
 
-![](pic/agent/ragas-evaluation-framework.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/ragas-evaluation-framework.png)
 
 **1. Faithfulness（忠实度）**
 
@@ -2154,7 +2154,7 @@ RAGAS 等自动评估通常需要额外调用 LLM：
 
 #### 评估驱动的优化闭环
 
-![](pic/agent/rag-optimization-loop.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/rag-optimization-loop.png)
 
 **第一步：建立 Baseline**
 
@@ -2384,7 +2384,7 @@ Agentic RAG 主要解决：**该不该检索、检索什么、检索几次，以
 
 ### 一、Agent 是什么？
 
-![](pic/agent/chatbot-workflow-agent-comparison.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/chatbot-workflow-agent-comparison.png)
 
 #### 四个能力
 
@@ -2524,7 +2524,7 @@ Workflow 适合**流程固定、规则明确**的任务；Agent 适合**路径�
 
 #### 模型“调用工具”本质上发生了什么？
 
-![](pic/agent/function-calling-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/function-calling-flow.png)
 
 1. **开发者定义工具**  
    向模型提供可用工具及其名称、功能和参数，相当于告诉模型“你能用哪些能力”。
@@ -7732,7 +7732,7 @@ LoRA 基于**权重变化可以用低秩矩阵近似**的假设，即下游任�
 
 部署方案决定的是模型服务栈里的责任由谁承担。
 
-![](pic/agent/deployment-responsibility-boundaries.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/deployment-responsibility-boundaries.png)
 
 #### 云 API、托管推理、自部署分别适合谁？
 
@@ -7781,7 +7781,7 @@ LoRA 基于**权重变化可以用低秩矩阵近似**的假设，即下游任�
 
 自部署需要具备**驱动管理、显存优化、模型升级、扩缩容、监控告警和故障恢复**能力，而不只是运行 Docker。
 
-![](pic/agent/deployment-mode-selection-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/deployment-mode-selection-flow.png)
 
 #### 最终选型为什么必须经过压测闭环？
 
@@ -8140,7 +8140,7 @@ vLLM 和 TensorRT-LLM 对 AWQ、GPTQ、INT8、FP8、FP4、W4A16 等量化方案�
 
 #### 项目里怎么选择量化方案？
 
-![](pic/agent/quantization-selection-flow.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/quantization-selection-flow.png)
 
 | 真实约束 | 优先方案 | 关键验证 |
 |---|---|---|
@@ -8314,7 +8314,7 @@ TPOT =（端到端延迟 - TTFT）/（输出Token数 - 1）
 
 随着并发增加，Continuous Batching 提高 GPU 利用率和吞吐；但超过容量拐点后，吞吐趋于饱和，**排队时间、TTFT 和 TPOT 快速上升**。
 
-![](pic/agent/goodput-capacity-curve.png)
+![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/goodput-capacity-curve.png)
 
 **吞吐最高点 ≠ 生产可用容量**：
 
@@ -8453,7 +8453,7 @@ SLO达标率 = 满足全部SLO的成功请求数 / 实际发送请求数
 
 #### 为什么 RNN 和 CNN 都没有成为大模型的主流底座？
 
-![RNN](pic/agent/rnn-hidden-state-sequence.png)
+![RNN](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/agent/rnn-hidden-state-sequence.png)
 
 - **RNN：串行计算，长距离依赖难处理。** 必须按顺序处理序列，难以充分利用 GPU/TPU 的并行能力；信息逐步传递容易衰减，训练不稳定。
 - **CNN：擅长局部特征，但全局建模能力不足。** 卷积核适合提取边缘、纹理等局部特征，但语言中的远距离依赖需要堆叠更多层或设计复杂结构才能捕获。
