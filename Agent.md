@@ -65,6 +65,17 @@
   - [二、KV Cache 与 PagedAttention](#二kv-cache-与-pagedattention)
   - [三、大模型量化](#三大模型量化)
   - [四、服务压测与容量规划](#四服务压测与容量规划)
+- [Transformer](#transformer)
+  - [一、为什么大模型绕不开 Transformer](#一为什么大模型绕不开-transformer)
+  - [二、Transformer 数据流](#二transformer-数据流)
+  - [三、Q、K、V 与 Attention](#三qkv-与-attention)
+  - [四、Attention 计算全过程](#四attention-计算全过程)
+  - [五、Multi-Head Attention](#五multi-head-attention)
+  - [六、位置编码](#六位置编码)
+  - [七、Transformer Block](#七transformer-block)
+  - [八、三种 Transformer 架构](#八三种-transformer-架构)
+  - [九、手写代码](#九手写代码)
+  - [十、Transformer 面试题](#十transformer-面试题)
 - [AI 编程](#ai-编程)
   - [一、AI 编程产品三层架构](#一ai-编程产品三层架构)
   - [二、为什么 Agent 时代都在做 CLI](#二为什么-agent-时代都在做-cli)
@@ -83,7 +94,7 @@
 
 ### 一、13个大模型核心概念
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-9.png)
+![](pic/agent/llm-concept-evolution.png)
 
 #### Prompt：提供给大模型的输入
 
@@ -588,7 +599,7 @@ System Prompt 放全局设定，如角色、规则、风格和约束；User Prom
 
 ### 三、Few-shot、CoT(Chain-of-Thought) 与 Reflection
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image.png)
+![](pic/agent/few-shot-cot-reflection-workflow.png)
 
 #### Few-shot：给模型看“标准示例”
 
@@ -889,7 +900,7 @@ Context Engineering 的核心，就是在模型推理时**持续选择和维护�
 - **状态摘要：** 跨轮次需要持续保留的目标、约束、进度和决定；
 - **外部记忆：** 完整历史、文档、日志和结构化事实，需要时再检索。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-3.png)
+![](pic/agent/long-conversation-memory-flow.png)
 
 每轮结束后，系统要判断新信息该放哪里：当前要用的留在上下文，长期有效的写入状态或外部记忆，纯过程信息只保留日志或引用地址。
 
@@ -950,7 +961,7 @@ RAG 是 Context Engineering 的重要组成部分，主要解决“**找什么�
 - **缓存 Token：** 命中 Prompt Cache 的重复输入，具体计费规则取决于模型 API；
 - **推理 Token：** 部分推理模型内部使用，是否可见、计费或占用窗口需要看具体接口说明。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-2.png)
+![](pic/agent/token-cost-and-latency-flow.png)
 
 #### 一次请求到底花多少钱？
 
@@ -1103,7 +1114,7 @@ RAG 更适合以下场景：
 
 #### 链路总览
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-4.png)
+![](pic/agent/rag-indexing-and-query-flow.png)
 
 #### 离线阶段
 
@@ -1357,7 +1368,7 @@ RAG 中 Query 往往较短，而文档片段较长，因此应关注模型是否
 
 可以简单理解为：**Embedding 负责粗召回，Rerank 负责精排。**
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-5.png)
+![](pic/agent/embedding-and-reranking.png)
 
 - **Embedding（Bi-Encoder）：** Query 和文档分别编码成向量，通过余弦相似度等方式快速检索。文档向量可以提前计算并存入向量库，因此速度快，适合从海量文档中召回 Top-K。
 - **Rerank（Cross-Encoder）：** 将 Query 和候选 Chunk 一起输入模型，直接计算相关性分数。语义判断更准确，但无法提前计算，速度更慢，因此只适合对少量候选结果精排。
@@ -1898,7 +1909,7 @@ Overlap 主要缓解相邻 Chunk 的边界断裂；Parent-Child 则显式保存�
 
 **RAGAS（Retrieval-Augmented Generation Assessment）** 是 RAG 场景中常用的自动化评估框架，可以借助 LLM 从多个维度评估生成结果的质量。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-6.png)
+![](pic/agent/ragas-evaluation-framework.png)
 
 **1. Faithfulness（忠实度）**
 
@@ -2143,7 +2154,7 @@ RAGAS 等自动评估通常需要额外调用 LLM：
 
 #### 评估驱动的优化闭环
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-7.png)
+![](pic/agent/rag-optimization-loop.png)
 
 **第一步：建立 Baseline**
 
@@ -2373,7 +2384,7 @@ Agentic RAG 主要解决：**该不该检索、检索什么、检索几次，以
 
 ### 一、Agent 是什么？
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-8.png)
+![](pic/agent/chatbot-workflow-agent-comparison.png)
 
 #### 四个能力
 
@@ -2513,7 +2524,7 @@ Workflow 适合**流程固定、规则明确**的任务；Agent 适合**路径�
 
 #### 模型“调用工具”本质上发生了什么？
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/pic/image-1.png)
+![](pic/agent/function-calling-flow.png)
 
 1. **开发者定义工具**  
    向模型提供可用工具及其名称、功能和参数，相当于告诉模型“你能用哪些能力”。
@@ -7596,6 +7607,121 @@ LoRA 基于**权重变化可以用低秩矩阵近似**的假设，即下游任�
 
 ### 五、应用开发者的微调面试框架
 
+#### 应用开发者面对微调题的真正困境
+
+面试官考察的不是应用开发者是否会训练模型，而是**有没有工程判断力**。
+
+主要关注四个问题：
+
+- **是否必要**：需求该不该微调，为什么？
+- **数据质量**：训练数据从哪里来，是否可靠？
+- **效果验证**：如何用指标证明微调收益？
+- **成本收益**：微调是否划算，基模升级后是否仍有价值？
+
+#### 面试官的追问是有梯度的
+
+**应用开发者必须掌握：**
+
+- 为什么微调、如何选择微调方法。
+- 训练数据来源与质量。
+- 效果评估与收益指标。
+
+**算法岗的深入内容：**
+
+- Loss 推导、PPO 目标函数。
+- 分布式训练架构。
+
+应用岗重点是**理解原理和工程决策**，算法细节了解基本概念与作用即可。
+
+#### 回答总原则：守住四条线
+
+- **选型**：为什么微调？为什么不用 Prompt / RAG？选择哪种微调方法？
+- **数据**：数据来源、清洗方式与训练集划分。
+- **评估**：离线与在线指标、对比实验、回归测试，验证实际收益。
+- **成本**：训练与维护成本，以及基模升级对微调价值的影响。
+
+#### 面试问题
+
+**Q：为什么微调？不能用 RAG 或 Prompt 吗？（选型）**
+
+先判断模型是**缺知识还是缺行为**。
+
+- **缺知识**：内部文档、实时数据、来源追溯等优先用 RAG，避免知识更新带来的重训成本和灾难性遗忘。
+- **缺行为**：固定格式、业务话术、专业判断风格，先尝试 Prompt 和 Few-shot；效果不稳定且有高质量示范数据时，再考虑微调。
+
+成本优先级通常是 **Prompt < RAG < 微调**。
+
+**Q：SFT、RLHF、DPO 有什么区别？（选型）**
+
+- **SFT**：学习高质量示范，适合固定格式、话术和工具调用范式。
+- **RLHF**：通过 Reward Model 和 PPO 优化人类或业务偏好，训练成本较高。
+- **DPO**：直接使用 Chosen/Rejected 偏好对训练，无需单独训练 Reward Model 和 PPO，工程上更轻量。
+
+有高质量偏好数据时，优先考虑 DPO，而非直接使用完整 RLHF。
+
+**Q：LoRA 的 Rank 怎么设置？为什么？（选型 + 数据）**
+
+- **Rank**：一般从 `8` 或 `16` 起步。Rank 越大，适配容量越高，但参数量、显存和过拟合风险也可能增加。
+- **选择方式**：简单任务、小数据量可用 `8`；复杂任务、大数据量尝试 `16`、`32`，通过固定条件下的验证集对比实验确定。
+- **Alpha**：通常设为 Rank 的两倍左右，控制 LoRA 增量的缩放强度。
+
+**Q：怎么证明微调真的有收益？（评估）**
+
+使用固定测试集，对比微调前后的模型：
+
+- **任务指标**：JSON 合法率、分类准确率、F1、工具调用成功率。
+- **质量指标**：幻觉率、格式错误率、错误拒答率。
+- **成本指标**：单次调用成本、延迟变化。
+- **风险指标**：越权率、错误放行率。
+
+同时保留**历史失败 Case** 进行回归测试，防止其他场景退化，并通过线上指标验证实际收益。
+
+**Q：微调数据从哪来？如何保证质量？（数据）**
+
+原始数据不能直接训练，需要：
+
+- 清洗去重，删除过期规则和隐私信息。
+- 统一示范格式，人工抽检标注质量。
+- 划分训练集与测试集，确保两者不重叠。
+
+**Q：基模越来越强，垂类微调还有必要吗？（成本 + 选型）**
+
+**低质量、补通用能力的微调容易被基模升级抹平**，例如普通 QA 补知识、缺乏评测、将动态规则写入参数。
+
+但以下场景仍有价值：
+
+- 固定业务流程与品牌话术。
+- 安全拒答边界。
+- 小模型降本。
+- 特定工具调用格式。
+
+**微调的价值正从“补能力”转向“控行为、控偏好、控成本、控风险”。**
+
+#### 如果真没做过微调呢？
+
+**第一，诚实回答，体现工程判断力。**
+
+如果没做过微调，可以说明：“项目评估过微调，但最终认为 RAG + Prompt 更合适。”
+
+再解释选型依据。**评估后选择不微调，同样体现工程判断力**，比编造项目经验更有说服力。
+
+**第二，突出相关真实经验。**
+
+即使没有微调经验，也可以重点介绍：
+
+- **RAG**：数据治理与知识管理。
+- **Prompt**：行为优化与效果调试。
+- **评估体系**：指标设计、对比实验与效果验证。
+
+#### 简历撰写
+
+微调项目至少要写清楚四点：
+
+- **选型**：微调的任务、模型，以及为什么选择微调而非 RAG。
+- **数据**：数据量、来源、清洗与标注方式。
+- **超参数**：Rank、Alpha 的设置及实验依据。
+- **效果**：与基线模型对比，关键指标提升了多少。
+
 ### 六、SFT、RLHF、DPO 面试详解
 
 ## 推理与部署
@@ -7606,7 +7732,7 @@ LoRA 基于**权重变化可以用低秩矩阵近似**的假设，即下游任�
 
 部署方案决定的是模型服务栈里的责任由谁承担。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-1.png)
+![](pic/agent/deployment-responsibility-boundaries.png)
 
 #### 云 API、托管推理、自部署分别适合谁？
 
@@ -7655,7 +7781,7 @@ LoRA 基于**权重变化可以用低秩矩阵近似**的假设，即下游任�
 
 自部署需要具备**驱动管理、显存优化、模型升级、扩缩容、监控告警和故障恢复**能力，而不只是运行 Docker。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-2.png)
+![](pic/agent/deployment-mode-selection-flow.png)
 
 #### 最终选型为什么必须经过压测闭环？
 
@@ -8014,7 +8140,7 @@ vLLM 和 TensorRT-LLM 对 AWQ、GPTQ、INT8、FP8、FP4、W4A16 等量化方案�
 
 #### 项目里怎么选择量化方案？
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-9.png)
+![](pic/agent/quantization-selection-flow.png)
 
 | 真实约束 | 优先方案 | 关键验证 |
 |---|---|---|
@@ -8188,7 +8314,7 @@ TPOT =（端到端延迟 - TTFT）/（输出Token数 - 1）
 
 随着并发增加，Continuous Batching 提高 GPU 利用率和吞吐；但超过容量拐点后，吞吐趋于饱和，**排队时间、TTFT 和 TPOT 快速上升**。
 
-![](https://raw.githubusercontent.com/lanluolan/md-docs/main/image-10.png)
+![](pic/agent/goodput-capacity-curve.png)
 
 **吞吐最高点 ≠ 生产可用容量**：
 
@@ -8308,6 +8434,301 @@ SLO达标率 = 满足全部SLO的成功请求数 / 实际发送请求数
 必须结合**模型、硬件、输入输出分布和 SLO**回答。
 
 先通过闭环压测找到容量拐点，再用目标 RPS 和突发流量验证，最终报告在 **P99、错误率和 Goodput 达标**前提下的单副本可持续并发。
+
+## Transformer
+
+### 一、为什么大模型绕不开 Transformer
+
+#### Transformer 到底是什么？
+
+**Transformer 本质上是一个将输入序列映射为输出的函数。**
+
+**核心特点：**
+
+- **注意力机制**：序列中每个位置都能直接关注其他位置。
+- **并行训练**：不需要像传统序列模型一样逐步传递信息。
+- **扩展性强**：适合大规模数据、参数和算力。
+
+可以理解为：**先看到整个句子，再决定每个词应该重点关注哪些词。**
+
+#### 为什么 RNN 和 CNN 都没有成为大模型的主流底座？
+
+![RNN](pic/agent/rnn-hidden-state-sequence.png)
+
+- **RNN：串行计算，长距离依赖难处理。** 必须按顺序处理序列，难以充分利用 GPU/TPU 的并行能力；信息逐步传递容易衰减，训练不稳定。
+- **CNN：擅长局部特征，但全局建模能力不足。** 卷积核适合提取边缘、纹理等局部特征，但语言中的远距离依赖需要堆叠更多层或设计复杂结构才能捕获。
+
+#### Transformer 克服了什么短板？
+
+1. **长距离依赖更直接**：通过注意力机制，Token 可以直接关注序列中相关的位置，无需逐层传递信息。
+
+2. **支持并行训练**：整段 Token 可以同时参与矩阵运算，充分利用 GPU/TPU 的并行计算能力。
+
+3. **扩展性更强**：可通过增加网络层数、Hidden Size 和标准化训练流程，扩展到更大规模的模型。
+
+#### 为什么 BERT、GPT、T5、Llama 本质都和 Transformer 有关？
+
+它们都基于 **Transformer 架构**，但应用方式不同：
+
+1. **BERT：理解型**。采用双向编码，同时关注左右上下文，适合分类、抽取、匹配等任务。
+
+2. **GPT：生成型**。采用自回归生成，根据前文逐个预测下一个 Token。
+
+3. **T5：Text-to-Text 型**。将翻译、摘要、问答等任务统一为“输入文本 → 输出文本”。
+
+4. **Llama：现代大模型工程化改进**。优化归一化、位置编码和训练细节，提升训练效率与推理表现。
+
+### 二、Transformer 数据流
+
+假设输入文本为：**远方有颗苹果树**，序列长度 $L=7$，隐藏维度 $d=512$。
+
+**Step 1：分词（Tokenization）**
+
+假设将文本切分为：
+
+`[远, 方, 有, 颗, 苹, 果, 树]`
+
+**Step 2：Embedding + 位置编码**
+
+将每个 Token 映射为 512 维向量，并加入位置信息，得到：
+
+$$
+X\in\mathbb{R}^{7\times512}
+$$
+
+**Step 3：自注意力子层**
+
+- **多头自注意力**：计算 Token 之间的关联。
+- **残差连接**：将输入与注意力输出相加。
+- **层归一化（LayerNorm）**：稳定数值分布。
+
+$$
+\operatorname{LN}(x)=\gamma\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta
+$$
+
+输出维度仍为 $7\times512$。
+
+**Step 4：前馈神经网络（FFN）**
+
+FFN 对每个 Token 位置分别进行相同的变换，以增强特征表达能力：
+
+1. **升维**：$7\times512\rightarrow7\times2048$。
+2. **非线性变换**：例如使用 ReLU 或 GELU。
+3. **降维**：$7\times2048\rightarrow7\times512$。
+4. **残差连接**：将 FFN 子层的输入与其输出相加；若模型包含 LayerNorm，其位置取决于采用 Pre-LN 还是 Post-LN 结构。
+
+FFN 子层输出形状仍为 $7\times512$。经过多层 Transformer 堆叠后，形状仍保持为 $7\times512$。
+
+**Step 5：预测下一个 Token**
+
+将最后一个位置的 512 维表示映射到词表大小（假设为 50257），得到每个候选 Token 的得分。
+
+模型根据得分选择下一个 Token，将其拼接到序列末尾，再重复计算。
+
+### 三、Q、K、V 与 Attention
+
+- **Query（Q）**：表示当前 Token 想关注什么，即“我应该更注意谁？”
+- **Key（K）**：用于与 Query 匹配，判断各 Token 的相关性。
+- **Value（V）**：存储 Token 的特征信息，根据 Q 与 K 的匹配程度，加权融入当前 Token 的语义表示。
+
+### 四、Attention 计算全过程
+
+以“我 爱 你”为例，设三个 Token 的 Embedding 分别为 $[1,0]$、$[0,1]$、$[1,1]$，组成一个 $3×2$ 的矩阵 X。
+
+通常通过可学习矩阵生成 Query、Key 和 Value：
+
+$$
+\begin{aligned}
+Q &= XW_Q \\
+K &= XW_K \\
+V &= XW_V
+\end{aligned}
+$$
+
+为简化计算，令 $W_Q=W_K=W_V=I$，于是 $Q=K=V=X$。
+
+**1. 计算相关性并缩放**（$d_k=2$）：
+
+$$
+\frac{QK^\top}{\sqrt{d_k}}\approx
+\begin{bmatrix}
+0.71&0&0.71\\
+0&0.71&0.71\\
+0.71&0.71&1.41
+\end{bmatrix}
+$$
+
+**2. 按行 Softmax 得到权重**：
+
+$$
+A=\operatorname{Softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right)\approx
+\begin{bmatrix}
+0.40&0.20&0.40\\
+0.20&0.40&0.40\\
+0.25&0.25&0.50
+\end{bmatrix}
+$$
+
+**3. 加权聚合 Value**：$\text{Output}=AV$，输出形状为 $3\times2$。例如“你”的输出为：
+
+$$
+0.25[1,0]+0.25[0,1]+0.50[1,1]=[0.75,0.75]
+$$
+
+因此，自注意力通过 Q、K 的匹配计算权重，再用权重聚合 V：
+
+$$
+\boxed{\operatorname{Attention}(Q,K,V)=\operatorname{Softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right)V}
+$$
+
+### 五、Multi-Head Attention
+
+**单头 Attention 只能从一个角度关注 Token 关系，而 Multi-Head Attention 通过多个独立的注意力头，并行学习不同的关注模式**，如指代、修饰和语法关系。
+
+每个 Head 都有独立的 `W_Q`、`W_K`、`W_V`，在不同子空间中计算 Attention。
+
+**维度拆分（假设 `d_model = 512`、`h = 8`）：**
+
+- 每个 Head 的维度：`512 ÷ 8 = 64`。
+- 每个 Head 独立计算 Attention，输出 `n × 64`。
+- 8 个 Head 并行计算，总计算量与单头基本相当。
+
+**拼接 + 线性变换：**
+
+将 8 个 Head 的输出横向拼接：
+
+```text
+[head₁ | head₂ | ... | head₈] → n × 512
+```
+
+再乘输出投影矩阵 `W_O`（`512 × 512`），融合不同 Head 的信息：
+
+```text
+MultiHead(Q, K, V) = Concat(head₁, …, headₕ) × W_O
+```
+
+**完整计算流程：**
+
+| 步骤 | 操作 | 输入 | 输出 |
+|---|---|---|---|
+| ① 线性投影 | 乘 `W_Q`、`W_K`、`W_V` | `n × 512` | 3 个 `n × 512` |
+| ② 维度拆分 | 切成 8 个 Head | `n × 512` | 8 个 `n × 64` |
+| ③ 并行 Attention | 各 Head 独立计算 | `n × 64` | 8 个 `n × 64` |
+| ④ 拼接 | Concat | 8 个 `n × 64` | `n × 512` |
+| ⑤ 输出投影 | 乘 `W_O` | `n × 512` | `n × 512` |
+
+### 六、位置编码
+
+**Self-Attention 本身不感知 Token 顺序**，因此需要位置编码（Positional Encoding）补充位置信息。
+
+位置编码将位置向量与 Token Embedding 相加，使每个 Token 同时包含**语义信息和位置信息**。
+
+**1. 正弦位置编码**
+
+原始 Transformer 使用固定的正弦、余弦函数：
+
+$$
+PE_{(pos,\ 2i)} = \sin\left(\frac{pos}{10000^{2i/d}}\right)
+$$
+
+$$
+PE_{(pos,\ 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d}}\right)
+$$
+
+**2. 为什么使用三角函数？**
+
+- **位置区分**：不同位置具有不同的编码模式。
+- **距离规律**：位置之间的关系具有规律性。
+- **长度泛化**：可以为训练长度之外的位置计算编码。
+
+**3. 为什么不同维度使用不同频率？**
+
+- **低维度**：频率高、变化快，便于区分近距离位置。
+- **高维度**：频率低、变化慢，便于表示更大尺度的位置关系。
+
+不同频率组合，相当于使用多种精度的尺子表示位置。
+
+**4. 固定编码与可学习编码**
+
+| 对比 | 正弦编码（固定） | 可学习编码 |
+|---|---|---|
+| 参数量 | 无额外参数 | 增加位置参数 |
+| 长序列泛化 | 可计算训练长度外的位置 | 通常受训练长度限制 |
+| 代表模型 | 原始 Transformer | BERT、GPT-2 |
+
+### 七、Transformer Block
+
+一个 **Transformer Block** 包含两个子层：
+
+- **Self-Attention**：计算 Token 之间的关联。
+- **FFN（前馈神经网络）**：通过非线性变换提取更深层特征。
+
+每个子层都配有**残差连接（Residual Connection）和层归一化（LayerNorm）**。
+
+**1. 残差连接：保留原始信息**
+
+将子层输出与输入相加，主要作用：
+
+- **防止信息丢失**：保留原始输入。
+- **缓解梯度消失**：为梯度提供直接传播路径，使深层网络训练更稳定。
+
+**2. 层归一化：稳定数值分布**
+
+LayerNorm 将特征归一化到均值约为 0、方差约为 1 的分布，再进行缩放和平移，避免数值分布不稳定。
+
+**3. FFN：引入非线性**
+
+FFN 通过**升维 → 激活 → 降维**提取非线性特征。
+
+- **升维**：$512\rightarrow2048$
+
+$$
+h=W_1x+b_1
+$$
+
+- **激活**：使用 ReLU 或 GELU。
+
+$$
+h=\operatorname{GELU}(h)
+$$
+
+- **降维**：$2048\rightarrow512$
+
+$$
+\operatorname{Output}=W_2h+b_2
+$$
+
+**Transformer Block 完整前向过程**
+
+输入矩阵 $x$，形状为 $L\times d$。
+
+**自注意力子层：**
+
+$$
+x'=\operatorname{LayerNorm}(x+\operatorname{MultiHeadAttention}(x))
+$$
+
+**前馈神经网络子层：**
+
+$$
+x''=\operatorname{LayerNorm}(x'+\operatorname{FFN}(x'))
+$$
+
+输出 $x''$ 的形状仍为 $L\times d$。
+
+**输入和输出维度一致**，因此多个 Transformer Block 可以连续堆叠，构建深层网络。
+
+### 八、三种 Transformer 架构
+
+| 架构类型 | 注意力机制 | 核心能力 | 代表模型 | 适用场景 |
+|---|---|---|---|---|
+| **Encoder-only** | 双向注意力，可关注完整上下文 | 文本理解与分析 | BERT、RoBERTa | 情感分析、文本分类、实体识别、关键词提取 |
+| **Decoder-only** | 单向因果注意力（Mask），只能关注当前位置及之前的 Token | 文本生成与推理 | GPT、Llama、DeepSeek、Claude | 对话、写作、逻辑推理、代码生成 |
+| **Encoder-Decoder** | Encoder 双向编码，Decoder 结合原文自回归生成 | 序列转换 | T5、BART、原始 Transformer | 翻译、摘要、纠错改写 |
+
+### 九、手写代码
+
+### 十、Transformer 面试题
 
 ## AI 编程
 
